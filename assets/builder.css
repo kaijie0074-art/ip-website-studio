@@ -76,7 +76,10 @@
   -webkit-backdrop-filter:blur(20px) saturate(120%);
   font-family:'Inter','PingFang SC',sans-serif;
   color:#f4ecda;
-  overflow-y:auto;
+  overflow-y:scroll;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
   cursor:auto;
   -webkit-text-size-adjust:100%;
   animation:ipwc-fadeIn .3s ease forwards;
@@ -101,7 +104,7 @@
   max-width:1320px;
   margin:0 auto;
   padding:clamp(20px,3vw,40px);
-  min-height:100vh;
+  padding-bottom:80px;
   display:flex;flex-direction:column;
   gap:clamp(20px,2.5vw,32px);
 }
