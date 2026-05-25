@@ -297,14 +297,25 @@
     }
     const m = document.getElementById('ipwc-modal');
     m.classList.add('is-open');
+    // 记录当前 scrollY，给 body 加 position:fixed 锁滚（兼容 Safari/Chrome 不会穿透滚动到底层）
+    const sy = window.scrollY || window.pageYOffset || 0;
+    document.body.dataset.ipwcScrollY = String(sy);
+    document.documentElement.classList.add('ipwc-locked');
     document.body.classList.add('ipwc-locked');
+    document.body.style.top = '-' + sy + 'px';
     validateForm();
   }
 
   function closeModal(){
     const m = document.getElementById('ipwc-modal');
     m.classList.remove('is-open');
+    document.documentElement.classList.remove('ipwc-locked');
     document.body.classList.remove('ipwc-locked');
+    // 还原 scrollY
+    const sy = parseInt(document.body.dataset.ipwcScrollY || '0', 10);
+    document.body.style.top = '';
+    delete document.body.dataset.ipwcScrollY;
+    window.scrollTo(0, sy);
     // abort any in-flight request
     if (abortController){
       try { abortController.abort(); } catch(_){}
