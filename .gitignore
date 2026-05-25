@@ -3,3 +3,8 @@
 .wrangler/
 node_modules/
 *.log
+
+# Private intellectual assets (not for public repo)
+training/
+assets/system-prompt.txt
+.claude/skills/build-site/SKILL.md
