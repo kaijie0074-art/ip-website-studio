@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Principle Cosmos · 49 条硬规则的 3D 漂浮</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&family=Noto+Serif+SC:wght@300;500;700;900&family=Noto+Sans+SC:wght@200;300;400&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --ink:#f8f4ea;
+  --ink-dim:#c4bfb2;
+  --ink-mid:#9e9788;
+  --ink-faint:#6e6960;
+  --ink-ghost:#3f3b34;
+  --bg:#06060a;
+  --c-aest:#ffb88a;     /* 审美 暖橙 */
+  --c-struct:#6ad4ff;   /* 结构 冷蓝 */
+  --c-motion:#c9a4ff;   /* 动效 紫 */
+  --c-media:#ffd06a;    /* 媒体 暖金 */
+  --c-anti:#e2624f;     /* anti-pattern 沉红 */
+  --c-critic:#ff8aa8;   /* critic-fed 玫粉 */
+  --c-state:#8aff9c;    /* 互动状态机 苔绿 */
+  --c-signal:#f8f4ea;   /* 反响信号 月白 */
+}
+html,body{
+  background:var(--bg);color:var(--ink);
+  font-family:'Noto Sans SC',sans-serif;font-weight:300;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  height:100%;
+  cursor:none;
+}
+@media (hover:none) or (pointer:coarse){
+  html,body{cursor:auto}
+}
+
+/* === Three.js 画布 === */
+#cosmos{position:fixed;inset:0;z-index:1;display:block;background:radial-gradient(ellipse at center,#0c0a14 0%,#06060a 70%)}
+#cosmos canvas{display:block;width:100%;height:100%}
+
+/* === 噪点 + vignette === */
+#vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 35%,rgba(6,6,10,.85) 100%);}
+#grain{position:fixed;inset:0;z-index:3;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.85'/></svg>");}
+#warm-glow{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at 22% 18%,rgba(255,184,138,0.07),transparent 45%),
+             radial-gradient(ellipse at 78% 88%,rgba(106,212,255,0.05),transparent 50%);}
+
+/* === intro loader === */
+.intro{position:fixed;inset:0;z-index:50;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  transition:opacity 1.4s ease;}
+.intro.gone{opacity:0;pointer-events:none}
+.intro-title{font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:13px;letter-spacing:.42em;color:var(--ink-mid);text-transform:uppercase;}
+.intro-bar{width:100px;height:1px;background:var(--ink-ghost);overflow:hidden;position:relative;}
+.intro-bar::after{content:'';position:absolute;inset:0;background:var(--ink-mid);
+  transform-origin:left;animation:loaderbar 1.8s ease-in-out infinite;}
+@keyframes loaderbar{0%,100%{transform:scaleX(.15);opacity:.4}50%{transform:scaleX(1);opacity:1}}
+
+/* === 顶部 manifesto === */
+.manifesto{position:fixed;top:28px;left:32px;z-index:20;pointer-events:none;
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:11px;letter-spacing:.32em;color:var(--ink-mid);
+  text-transform:uppercase;line-height:1.7;
+  text-shadow:0 1px 12px rgba(6,6,10,.95);}
+.manifesto .h{display:block;color:var(--ink);font-size:13px;letter-spacing:.46em;margin-bottom:6px;}
+.manifesto .sub{display:block;font-family:'Noto Serif SC',serif;font-style:normal;
+  font-weight:300;font-size:11px;letter-spacing:.18em;color:var(--ink-faint);}
+
+/* === 顶部右侧 meta === */
+.meta-top{position:fixed;top:30px;right:32px;z-index:20;pointer-events:none;
+  font-family:'JetBrains Mono',monospace;font-weight:300;
+  font-size:9.5px;letter-spacing:.22em;color:var(--ink-mid);text-align:right;
+  text-shadow:0 1px 12px rgba(6,6,10,.95);}
+.meta-top .num{color:var(--ink);font-size:11px;letter-spacing:.16em;}
+.meta-top .sep{display:inline-block;width:8px;}
+
+/* === 底部状态条 === */
+.statusbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
+  height:36px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;pointer-events:none;
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.22em;
+  color:var(--ink-mid);text-transform:uppercase;
+  border-top:1px solid rgba(158,151,136,.08);
+  background:linear-gradient(to top,rgba(6,6,10,.7),transparent);}
+.statusbar .left,.statusbar .right{display:flex;gap:22px;align-items:center;}
+.statusbar .dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:6px;
+  vertical-align:middle;animation:pulse 2.4s ease-in-out infinite;}
+.statusbar .live .dot{background:var(--c-state);box-shadow:0 0 8px var(--c-state);}
+.statusbar .focus{color:var(--ink);}
+.statusbar .focus.empty{color:var(--ink-faint);font-style:italic;letter-spacing:.16em;text-transform:none;}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* === 图例（左下） === */
+.legend{position:fixed;left:32px;bottom:54px;z-index:20;pointer-events:auto;
+  display:flex;flex-direction:column;gap:8px;
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;
+  color:var(--ink-dim);text-shadow:0 1px 8px rgba(6,6,10,.95);}
+.legend .row{display:flex;align-items:center;gap:8px;cursor:pointer;opacity:.82;
+  transition:opacity .25s,transform .25s;}
+.legend .row:hover{opacity:1;transform:translateX(2px);}
+.legend .row.dim{opacity:.25;}
+.legend .swatch{width:9px;height:9px;border-radius:50%;display:inline-block;
+  box-shadow:0 0 8px currentColor;}
+.legend .cnt{color:var(--ink-faint);margin-left:auto;font-size:8.5px;letter-spacing:.14em;}
+
+/* === 右侧详情面板 === */
+.detail{position:fixed;right:0;top:0;bottom:0;width:440px;max-width:90vw;z-index:30;
+  background:linear-gradient(to left,rgba(8,8,12,.96) 0%,rgba(8,8,12,.92) 60%,rgba(8,8,12,.7) 100%);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-left:1px solid rgba(158,151,136,.12);
+  padding:90px 44px 64px 36px;
+  transform:translateX(100%);transition:transform .7s cubic-bezier(.7,.0,.2,1);
+  overflow-y:auto;}
+.detail.open{transform:translateX(0);}
+.detail::-webkit-scrollbar{width:4px}
+.detail::-webkit-scrollbar-thumb{background:rgba(158,151,136,.2);border-radius:2px}
+.detail .close{position:absolute;top:28px;right:28px;width:24px;height:24px;
+  border:1px solid var(--ink-mid);border-radius:50%;background:transparent;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--ink-mid);font-family:'JetBrains Mono',monospace;font-size:11px;
+  transition:all .3s;padding:0;}
+.detail .close:hover{color:var(--ink);border-color:var(--ink);transform:rotate(90deg);}
+.detail .cat-label{font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  letter-spacing:.32em;color:var(--ink-mid);text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.detail .cat-label .swatch{width:8px;height:8px;border-radius:50%;
+  box-shadow:0 0 8px currentColor;}
+.detail .code{font-family:'JetBrains Mono',monospace;font-size:11px;
+  letter-spacing:.16em;color:var(--ink-faint);margin-bottom:12px;}
+.detail h2{font-family:'Noto Serif SC',serif;font-weight:700;
+  font-size:24px;line-height:1.42;color:var(--ink);
+  margin-bottom:24px;letter-spacing:.02em;}
+.detail h2 em{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;
+  color:var(--ink);}
+.detail .section-title{font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:.36em;color:var(--ink-faint);text-transform:uppercase;
+  margin-top:24px;margin-bottom:10px;padding-bottom:6px;
+  border-bottom:1px solid rgba(158,151,136,.1);}
+.detail .rule{font-family:'Noto Sans SC',sans-serif;font-weight:300;
+  font-size:13.5px;line-height:1.85;color:var(--ink-dim);letter-spacing:.02em;
+  white-space:pre-line;}
+.detail .anti{font-family:'Noto Sans SC',sans-serif;font-weight:300;
+  font-size:12.5px;line-height:1.78;color:var(--c-anti);letter-spacing:.02em;opacity:.82;
+  white-space:pre-line;}
+.detail .relate{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  letter-spacing:.18em;color:var(--ink-mid);}
+.detail .empty-hint{font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:14px;color:var(--ink-faint);text-align:center;margin-top:40vh;letter-spacing:.18em;}
+
+/* === Hover tooltip === */
+.tooltip{position:fixed;z-index:25;pointer-events:none;
+  font-family:'Noto Serif SC',serif;font-weight:300;font-size:13px;
+  color:var(--ink);letter-spacing:.04em;
+  padding:8px 14px;border:1px solid rgba(158,151,136,.18);
+  background:rgba(8,8,12,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-radius:2px;opacity:0;transform:translate(-50%,-130%);
+  transition:opacity .25s;white-space:nowrap;max-width:280px;}
+.tooltip.show{opacity:1;}
+.tooltip .code{font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  letter-spacing:.22em;color:var(--ink-mid);display:block;margin-bottom:3px;}
+
+/* === 自定义双层光标 === */
+.cursor-outer,.cursor-inner{position:fixed;pointer-events:none;z-index:60;
+  border-radius:50%;left:0;top:0;
+  transform:translate(-50%,-50%);
+  will-change:transform;}
+.cursor-outer{width:30px;height:30px;
+  border:1px solid var(--ink-mid);
+  transition:width .35s cubic-bezier(.7,.0,.2,1),height .35s cubic-bezier(.7,.0,.2,1),
+             border-color .35s,opacity .25s;
+  mix-blend-mode:difference;}
+.cursor-inner{width:4px;height:4px;background:var(--ink);
+  transition:width .25s,height .25s,background .25s;}
+.cursor-outer.hot{width:54px;height:54px;border-color:var(--c-aest);
+  box-shadow:0 0 24px rgba(255,184,138,.45);}
+.cursor-inner.hot{width:7px;height:7px;background:var(--c-aest);}
+.cursor-outer.lock{width:8px;height:8px;border-color:var(--ink);background:var(--ink);}
+@media (hover:none) or (pointer:coarse){
+  .cursor-outer,.cursor-inner{display:none}
+}
+
+/* === 提示行（中间偏下） === */
+.hint{position:fixed;left:50%;bottom:54px;transform:translateX(-50%);z-index:18;
+  font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;
+  letter-spacing:.34em;color:var(--ink-faint);text-transform:uppercase;
+  pointer-events:none;
+  text-shadow:0 1px 10px rgba(6,6,10,.95);
+  transition:opacity 1.2s;}
+.hint.fade{opacity:0;}
+.hint .k{color:var(--ink-mid);font-style:normal;font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;padding:0 4px;border:1px solid rgba(158,151,136,.2);border-radius:2px;
+  margin:0 4px;}
+
+/* === Mobile fallback === */
+.mobile-list{display:none;position:fixed;inset:0;z-index:40;
+  background:var(--bg);overflow-y:auto;padding:60px 22px 40px;}
+.mobile-list .m-title{font-family:'Noto Serif SC',serif;font-weight:700;
+  font-size:22px;color:var(--ink);margin-bottom:6px;letter-spacing:.04em;}
+.mobile-list .m-sub{font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:11px;letter-spacing:.32em;color:var(--ink-mid);text-transform:uppercase;
+  margin-bottom:34px;}
+.mobile-list .m-card{padding:18px 0;border-bottom:1px solid rgba(158,151,136,.1);}
+.mobile-list .m-card .m-cat{font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  letter-spacing:.28em;text-transform:uppercase;display:flex;align-items:center;gap:8px;
+  color:var(--ink-mid);margin-bottom:8px;}
+.mobile-list .m-card .m-cat .swatch{width:7px;height:7px;border-radius:50%;
+  box-shadow:0 0 6px currentColor;}
+.mobile-list .m-card .m-code{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  letter-spacing:.16em;color:var(--ink-faint);margin-bottom:4px;}
+.mobile-list .m-card .m-name{font-family:'Noto Serif SC',serif;font-weight:500;
+  font-size:16px;color:var(--ink);line-height:1.5;margin-bottom:8px;letter-spacing:.02em;}
+.mobile-list .m-card .m-rule{font-family:'Noto Sans SC',sans-serif;font-weight:300;
+  font-size:13px;line-height:1.78;color:var(--ink-dim);}
+
+@media (hover:none) or (pointer:coarse){
+  #cosmos,.manifesto,.meta-top,.statusbar,.legend,.hint,.detail{display:none}
+  .mobile-list{display:block}
+}
+</style>
+</head>
+<body>
+
+<div class="intro" id="intro">
+  <div class="intro-title">Aligning 49 principles in 3D space</div>
+  <div class="intro-bar"></div>
+</div>
+
+<div id="cosmos"></div>
+<div id="warm-glow"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+
+<div class="manifesto">
+  <span class="h">Principle Cosmos</span>
+  49 hard rules · floating in the dark
+  <span class="sub">硬规则不是装饰 · 是写网站前的对照清单</span>
+</div>
+
+<div class="meta-top">
+  <span class="num">49</span> principles<br>
+  <span class="num">7</span> categories<span class="sep"></span>·<span class="sep"></span>1 cosmos<br>
+  <span style="opacity:.6">三维 / 暗黑 / 电影感</span>
+</div>
+
+<div class="legend" id="legend">
+  <div class="row" data-cat="aest"><span class="swatch" style="color:#ffb88a;background:#ffb88a"></span>审美 Aesthetics<span class="cnt">P-001~011</span></div>
+  <div class="row" data-cat="struct"><span class="swatch" style="color:#6ad4ff;background:#6ad4ff"></span>结构 Structure<span class="cnt">P-012~017</span></div>
+  <div class="row" data-cat="motion"><span class="swatch" style="color:#c9a4ff;background:#c9a4ff"></span>动效 Motion<span class="cnt">P-018~024</span></div>
+  <div class="row" data-cat="media"><span class="swatch" style="color:#ffd06a;background:#ffd06a"></span>媒体 Media<span class="cnt">P-025~027</span></div>
+  <div class="row" data-cat="anti"><span class="swatch" style="color:#e2624f;background:#e2624f"></span>禁忌 Anti-pattern<span class="cnt">P-028~035</span></div>
+  <div class="row" data-cat="critic"><span class="swatch" style="color:#ff8aa8;background:#ff8aa8"></span>反虚高 Critic-fed<span class="cnt">P-036~039</span></div>
+  <div class="row" data-cat="state"><span class="swatch" style="color:#8aff9c;background:#8aff9c"></span>互动状态机 State<span class="cnt">P-040~044</span></div>
+  <div class="row" data-cat="signal"><span class="swatch" style="color:#f8f4ea;background:#f8f4ea"></span>反响信号 Signal<span class="cnt">P-045~049</span></div>
+</div>
+
+<div class="hint" id="hint">
+  <span class="k">drag</span> 旋转 <span class="k">scroll</span> 缩放 <span class="k">hover</span> 点亮 <span class="k">click</span> 锁定
+</div>
+
+<div class="statusbar">
+  <div class="left">
+    <span class="live"><span class="dot"></span>cosmos · live</span>
+    <span>WebGL · Three r0.169</span>
+  </div>
+  <div class="right">
+    <span>focus / <span class="focus empty" id="focus-label">none — drift in the dark</span></span>
+  </div>
+</div>
+
+<div class="detail" id="detail">
+  <button class="close" id="detail-close" aria-label="close">×</button>
+  <div id="detail-content">
+    <div class="empty-hint">point at a star · click to lock</div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <span class="code" id="tt-code">P-000</span>
+  <span id="tt-name"></span>
+</div>
+
+<div class="cursor-outer" id="curOuter"></div>
+<div class="cursor-inner" id="curInner"></div>
+
+<!-- Mobile fallback list -->
+<div class="mobile-list" id="mlist">
+  <div class="m-title">Principle Cosmos</div>
+  <div class="m-sub">49 hard rules · scroll list</div>
+  <div id="mlist-body"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ===================== 49 条 principles 数据 ===================== */
+const CAT = {
+  aest:   { name:'审美 Aesthetics',     color:0xffb88a, hex:'#ffb88a' },
+  struct: { name:'结构 Structure',      color:0x6ad4ff, hex:'#6ad4ff' },
+  motion: { name:'动效 Motion',         color:0xc9a4ff, hex:'#c9a4ff' },
+  media:  { name:'媒体 Media',          color:0xffd06a, hex:'#ffd06a' },
+  anti:   { name:'禁忌 Anti-pattern',   color:0xe2624f, hex:'#e2624f' },
+  critic: { name:'反虚高 Critic-fed',   color:0xff8aa8, hex:'#ff8aa8' },
+  state:  { name:'互动状态机 State',    color:0x8aff9c, hex:'#8aff9c' },
+  signal: { name:'反响信号 Signal',     color:0xf8f4ea, hex:'#f8f4ea' },
+};
+
+const P = [
+  // 审美 P-001 ~ P-011
+  { code:'P-001', cat:'aest', name:'优先深色底', rule:'拿不准时一律用深色底（黑/暖黑/深棕），浅色底只有在文案极强且字体功底硬时才用。深色更容易出"高级感"，浅色驾驭不住就变塑料。', anti:'默认白底 + 现代无衬线 + 浅灰副标题 → 像企业官网模板，无记忆点。', rel:'S1, S2, S7' },
+  { code:'P-002', cat:'aest', name:'红色强调色不许用纯红', rule:'暗黑宣言风的"血红"必须用 #d6321f / #e23b22 / #e63329 / #c01a16 一族，绝不使用 #ff0000。纯红会过饱和、像告警弹窗，毁掉宣言气质。', anti:'用 #ff0000 当主色 → 视觉刺眼、廉价感、像大字报。', rel:'S1' },
+  { code:'P-003', cat:'aest', name:'暖金点缀不超过 1 个元素', rule:'S2/S7 类风格里暖金 #c9a86a / #d8aa58 只允许出现在 logo、罗马数字、章节号、单一边框等小点缀，绝不大面积铺背景或填段落。', anti:'用暖金做整段背景或大块边框 → 风格从"克制电影感"塌成"廉价金属感"。', rel:'S2, S7' },
+  { code:'P-004', cat:'aest', name:'宣言型大标题字号 ≥ clamp(60px, 11vw, 140px)', rule:'宣言/海报/影片式主标题字号下限 60px、视口比例 ≥ 11vw、字重 ≥ 900。字号字重不够宣言就立不住。', anti:'默认 h1 32px + 字重 700 做"宣言" → 看上去像普通博客标题。', rel:'S1, T6' },
+  { code:'P-005', cat:'aest', name:'字体敏感风格必须引 Google Font CDN', rule:'S2、S3、S7 三类对字形敏感的风格必须用 link 引入对应 Google Font（Fraunces / Cormorant Garamond / JetBrains Mono / Noto Serif SC / Ma Shan Zheng），不允许只 fallback。', anti:'用 system 字体栈替代 Fraunces → fallback 成 PingFang/思源/SF，气质全变。', rel:'S2, S3, S7, T7' },
+  { code:'P-006', cat:'aest', name:'三字体系统专属杂志/文学风', rule:'S4/S7 做"杂志或文学体例"时，必须配齐三套字体——衬线大标题（Fraunces / Noto Serif SC 900）+ 中文细字体（Noto Sans SC 100/300 疏排）+ 等宽小字（JetBrains Mono 做 label / 数据 / 时间码）。', anti:'全文用思源黑体 → 没有罗马数字、没有 label 节奏、不像杂志像公众号导出。', rel:'S4, S7, T7' },
+  { code:'P-007', cat:'aest', name:'等宽字体是 HUD 风的入场券', rule:'S3 赛博 HUD 风必须用 JetBrains Mono / Space Mono / IBM Plex Mono 做数据、时间码、标签、tag chip。没有等宽字体就只是一张深色页，不是 HUD。', anti:'HUD 风用思源黑体做所有文字 → 缺少"仪器/终端"质感，变成普通深色页。', rel:'S3, T8' },
+  { code:'P-008', cat:'aest', name:'荧光色降饱和', rule:'S3 的荧光蓝/绿/红用低饱和版本（#6ad4ff / #39d353 / #ff4d3d），禁用纯饱和的 #00ffff / #00ff00。低饱和才像示波器/仪表，过饱和像 90 年代网页。', anti:'用 #00ffff 当主荧光 → 屏幕泛蓝、对比刺眼、与"高级 HUD"反向。', rel:'S3' },
+  { code:'P-009', cat:'aest', name:'暗黑底必配 grain + 暖光 radial', rule:'暗黑底（S1/S2/S7）必须叠两层 fixed pointer-events:none 的覆盖层——SVG feTurbulence 噪点（opacity 0.04~0.22）+ 一团暖色 radial-gradient 光晕。', anti:'纯 #000 底无噪点无光晕 → 屏幕像没渲染完、缺质感。', rel:'S1, S2, S7, T6' },
+  { code:'P-010', cat:'aest', name:'视觉单元 ≤ 5（单屏海报）', rule:'单屏海报型（无滚动）的视觉单元数量不超过 5 个（大标题 + 肖像/数字 + 副标题 + label + PLAY/CTA）。S2 单屏海报的力量来自"删到不能再删"。', anti:'单屏堆 1 hero + 4 小卡片 + 数据条 + footer → 看起来像 dashboard。', rel:'S2' },
+  { code:'P-011', cat:'aest', name:'留白是故意的', rule:'每一块大块留白必须能说出"留白在隔什么 / 让眼睛去哪"。不能解释的留白就是错位、是没排好。', anti:'标题下方留 40vh 空白只是因为忘了填内容 → 用户向下滚才发现还有东西。', rel:'—' },
+
+  // 结构 P-012 ~ P-017
+  { code:'P-012', cat:'struct', name:'滚动叙事最佳章节数 5-7', rule:'长 scroll 多章节型网站的章节数应落在 5-7 之间。少于 5 章用户没进入状态就结束（建议改单屏海报），多于 14 章必须切到 sticky chapter 模式否则节奏散。', anti:'4 个章节做"完整成长故事" → 每章节奏未展开就被下一章打断。', rel:'T13' },
+  { code:'P-013', cat:'struct', name:'影片式时长甜区 60-135 秒', rule:'影片式短片时长应落在 60s-135s。<60s 信息密度太密抓不住；>150s 没有极强节奏密度会从 A 档掉到 B 档。', anti:'做 200s 影片但每 30s 才一个章节切换 → 用户耐心耗尽、评分腰斩。', rel:'T1' },
+  { code:'P-014', cat:'struct', name:'首屏 3 秒法则', rule:'打开网站后 3 秒内必须出现一个明确的视觉焦点（巨型标题 / 海报肖像 / PLAY 按钮 / 正在动的元素）。3 秒内是"白屏 + 一行小字加载"就已经输了。', anti:'首屏只有顶部 logo 和"欢迎"两个字 + 浅灰副标题 → 用户直接划走。', rel:'T12' },
+  { code:'P-015', cat:'struct', name:'每章必须有独立动效骨架', rule:'影片式或长 scroll 章节式网站，每一章必须有一个区别于其他章的核心动效（词云收束 / 红环宣判 / 心跳脉冲 / 通知喷射 / 河流文字 …），不能所有章节都共享同一个 fade-up 入场。', anti:'10 章全部 fade-up + opacity 0→1 → 用户第三章就疲劳。', rel:'T1, T11' },
+  { code:'P-016', cat:'struct', name:'一屏一焦点', rule:'滚动过程中任何一屏不允许同时出现 2 个争夺注意力的视觉焦点。要么大标题 + 几行支撑文字，要么一张大图 + 一行 caption。', anti:'同一屏放 100px hero + 80px 大数字 + 满屏粒子 → 用户不知道往哪看。', rel:'—' },
+  { code:'P-017', cat:'struct', name:'章节切换需 3-5 秒停顿', rule:'每个章节切换后至少留 3-5 秒静止/慢动作，让读者消化。节奏过快没停顿会触发"信息密度过密"的复刻自评。', anti:'每 1.5 秒切一章共 10 章 → 用户只记得"闪了好多东西"，记不住任何一章。', rel:'T1' },
+
+  // 动效 P-018 ~ P-024
+  { code:'P-018', cat:'motion', name:'影片式必用 T1 + T17，禁用 first-frame', rule:'影片式网站必须用 T1（时间轴 shot 切换 + audio.currentTime 主时钟）+ T17（16:9 stage + grain + vignette）。只做 PLAY 首帧 + 静态海报不算影片式。', anti:'复刻"影片式 24 幕"只做了 PLAY 首帧 → 从 S 档塌到 62 分。', rel:'T1, T17' },
+  { code:'P-019', cat:'motion', name:'自定义光标只在桌面端启用', rule:'T4 自定义双层光标必须用 @media (hover: hover) and (pointer: fine) 门控，移动端剥离。375px 触屏没有光标概念，强搬过去会留下死框或干扰滑动。', anti:'T4 在移动端继续渲染 outer/inner 圆 → 浮动两个圆且不跟手，体验崩。', rel:'T4' },
+  { code:'P-020', cat:'motion', name:'canvas rAF 必须挂可见性清理', rule:'所有用 requestAnimationFrame 的 canvas/Three.js 循环，必须在 document.hidden / visibilitychange / beforeunload 时调用 cancelAnimationFrame 暂停。否则切后台时 CPU 跑满。', anti:'rAF 永远在跑 + 切到别的标签页 → 风扇狂转、电池速降。', rel:'T3, T11, T16' },
+  { code:'P-021', cat:'motion', name:'影片式有 BGM 时 cue 用 phrase mapping', rule:'影片式如果有真实 BGM，shot 的时间码必须用 {audioT, visualT} 数组做 phrase mapping，不能直接拿 audio.currentTime 做线性等比拉伸。线性拉伸丢的不是节拍是情绪精度。', anti:'把 0-8s 音频直接线性映射成 0-35s 视觉 → 节拍点对不上、情绪散。', rel:'T1' },
+  { code:'P-022', cat:'motion', name:'88+ 分必须有"1-2 个让人记住的小亮点"', rule:'想做到 88+ 分必须有 1-2 个差异化小动效（信封翻盖 / 骰子翻盘 / CTA 文字爆裂 / 自定义光标暖光晕 / count-up 数字 / 章节切场闪白 / 优惠券 flip）。全部"标准动效"是 75 分天花板。', anti:'用 5 个技术族但全是大众动效（fade、scale、blur）→ "看起来不错但记不住任何一处"。', rel:'T10, T12, T15' },
+  { code:'P-023', cat:'motion', name:'章节切换需 flash/wipe/curtain 转场', rule:'影片式每个章节之间必须有显式转场——首选 directorHit 闪白（fixed overlay opacity 0→0.6→0 / 180ms）、次选斜向 wipe、再次选黑场 curtain。', anti:'章节切换直接换 DOM，无任何过渡 → 像翻页 PDF。', rel:'T1' },
+  { code:'P-024', cat:'motion', name:'动效按章节分配，不堆首屏', rule:'所有动效按章节阶段分配：入场用 loader → hero 用 kinetic typo → 中段用 sticky beat → quote 屏用 scramble → ending 用粒子爆炸。不能 8 个动效全在第一屏触发。', anti:'首屏同时跑 loader + kinetic + 粒子 + scramble + 跑马灯 → 用户头晕、3 秒后划走。', rel:'T5, T12, T13' },
+
+  // 媒体 P-025 ~ P-027
+  { code:'P-025', cat:'media', name:'影片式想进 S 档必须有 BGM', rule:'影片式短片要进 S 档（≥85），必须配真实 BGM——首选 base64 内联 mp3、次选 Web Audio 程序合成 ambient drone、下策才是 performance.now 虚拟时钟。虚拟时钟能保节拍但丢情绪。', anti:'影片式做完整 10 章但完全无音频 → 自评"少了什么"，封顶 75。', rel:'T1, T15' },
+  { code:'P-026', cat:'media', name:'真人照片不能用 CSS 渐变替代', rule:'原作含真实人像 / 物品照片时，必须 base64 内联真实照片，不允许用 radial-gradient 拼"剪影"或纯色 placeholder。皮肤质感、物品重量、空间感是 CSS 渐变完全替代不了的"信号"。', anti:'把人物半身肖像换成 CSS radial-gradient 椭圆 → 风格塌一档，像 mockup。', rel:'—' },
+  { code:'P-027', cat:'media', name:'音频/视频按钮必须真的能播', rule:'页面上出现 PLAY / 音符 / 喇叭按钮就必须接真实音频或 Web Audio 程序合成，禁止留死按钮当 placeholder UI。死按钮一被点破，整站气质塌掉。', anti:'放了一个大 PLAY 按钮但点击什么都不响 → 用户从此不信任这个网站。', rel:'T15' },
+
+  // Anti-pattern P-028 ~ P-035
+  { code:'P-028', cat:'anti', name:'文字不许 placeholder / 编造', rule:'网站正文必须 100% 用原始素材逐字搬运。不允许 lorem ipsum、"代表性短句"补写、AI 改写"更通顺"的版本。文字含金量是 87+ 档的天花板。', anti:'把原作具体场景裁掉换成"我经常感到孤独" → 情感扳机完全失效。', rel:'—' },
+  { code:'P-029', cat:'anti', name:'长文画面感细节句一句都不能删', rule:'长文情感网站里"具体到时间地点感官"的细节句（凌晨两点 / 咖啡凉掉 / 把复杂的问题拆开 / 路边的猫）是情感扳机，必须一句不漏全文保留。这些句子是 80% 力量的来源。', anti:'把长文裁短成"摘要版"删掉所有细节句 → 皮 1:1 但肉全失。', rel:'—' },
+  { code:'P-030', cat:'anti', name:'章节正文不许偷工', rule:'长文章节的正文必须每章至少 6 段实质内容。一章只写一两句占位 + 一个章节号是结构失败，再好的视觉也撑不住。', anti:'6 章节但每章只有标题 + 1 句 caption → 像 PPT 大纲，没分量。', rel:'—' },
+  { code:'P-031', cat:'anti', name:'不许为 3D 而 3D', rule:'使用 Three.js 真 3D 必须先回答"3D 在叙事里承担什么功能"。回答不出来就用 Canvas 2D + grain + radial 替代，43 个高分案例只有 2 个真 3D。', anti:'往个人介绍页硬塞一个旋转粒子球，与文案毫无关联 → 加载慢、移动端卡、像 demo。', rel:'T2' },
+  { code:'P-032', cat:'anti', name:'红色不当背景大面积铺', rule:'S1 暗黑宣言的红色（#e23b22 一族）只能做强调（关键词 / 章节号 / 标点 / 一行警句的底色），禁止当 hero 区背景大面积铺。一旦铺成大红墙就从"宣言"塌成"大字报"。', anti:'整个首屏背景填 #e63329 + 白字 → 像 90 年代横幅广告。', rel:'S1' },
+  { code:'P-033', cat:'anti', name:'章节少于 5 个就改单屏海报', rule:'只有 3-4 章的内容不要做长 scroll，直接改成单屏海报。3-4 章的滚动叙事节奏永远撑不起来，用户没进入状态就结束。', anti:'3 章节做"完整 IP 介绍" → 用户滑两下就到底，疑惑"就这？"。', rel:'—' },
+  { code:'P-034', cat:'anti', name:'风格不许中途漂移', rule:'一个网站从头到尾必须是同一人格——配色 / 字体 / 动效语言 / 排版密度全程一致。不允许第 1-3 章 S1 暗黑宣言，第 4-5 章突然切 S5 明亮极简。', anti:'前半段红黑大字宣言，后半段切白底现代无衬线讲方法论 → 像两个网站拼接。', rel:'—' },
+  { code:'P-035', cat:'anti', name:'不许长得像 AI 默认产物', rule:'交付前自问："这个网站发出去会不会被人一眼说『AI 随便做的』"。识别特征：紫色渐变 hero / 圆角卡片网格 / emoji 当 icon / "欢迎来到 XX" 当首屏 / 居中三栏 feature card / 灰扑扑的中间色。', anti:'紫色渐变 hero + 三栏 emoji 卡片 + 圆角按钮 + 居中布局 → 100% AI 模板气。', rel:'—' },
+
+  // Critic-fed P-036 ~ P-039
+  { code:'P-036', cat:'critic', name:'不许把具体钩子改写成抽象金句', rule:'复刻 / 重建 / 原创长文时，"凌晨两点 / 咖啡凉掉 / 路边的猫 / 黑色的窗口"这类**具体到时间地点感官**的钩子句不允许被改写成"陌生的速度 / 成长的斜率 / 察觉就值得"这种抽象金句。抽象化是比删句子更隐蔽的删情感。', anti:'把"凌晨三点你打开那个黑色的窗口"改写成"成长的斜率越来越陡" → 文案变得"工整漂亮"，但情绪扳机直接归零。', rel:'P-028, P-029' },
+  { code:'P-037', cat:'critic', name:'章节标题不许机械重复同一种高亮句式', rule:'长文 / 杂志型 6-8 章的标题不许全用同一种"主标题 + 单词级 italic 高亮"模板。重复 5-6 次后变成 placeholder 套娃，再精致的字体也会失去张力。每章至少 2-3 章必须切换字体处理方式。', anti:'8 章标题全部"Noto Serif SC 900 + Fraunces italic 单词高亮"句式 → 第 3 章用户就识破模板。', rel:'P-015, P-025' },
+  { code:'P-038', cat:'critic', name:'荧光色饱和度有明确阈值线', rule:'S3 赛博 HUD 风的主荧光色必须落在低饱和族——绿 #39d353 / 蓝 #6ad4ff / 红 #ff4d3d，禁用 #39ff14 / #00ff00 / #00ffff / #39ff00 这类 HSL 饱和度 ≥ 95% 或亮度 ≥ 90% 的"过饱和原色"。', anti:'把主色定为 #39ff14 → 屏幕泛绿、对比刺眼、和"高级 HUD"反向。', rel:'P-008（精确化执行规则）' },
+  { code:'P-039', cat:'critic', name:'Generator 自评天然 inflate +0.4~0.75 / 5', rule:'generator（写网站的 agent）自评分一律 inflate +0.4~+0.75（5 分制）或 +0.8~+1.5（10 分制）。任何 generator 自评 ≥ 8.0 / 10 的作品，真实档位应按 7.2~7.7 / 10 重估，对应 A 档而非 S 档。', anti:'generator 自评 8.0 / 8.5 / 9.2 三件作品，独立 critic 复评全部落在 7.2-7.7（A 档边缘），跨档虚标。', rel:'触发协议级反思' },
+
+  // 互动状态机 P-040 ~ P-044
+  { code:'P-040', cat:'state', name:'互动叙事必须是真状态机而非线性脚本', rule:'互动叙事的最低门槛是**可循环、可输赢、可继承**的有限状态机（如 bet → decide → result → bet + stageclear / gameEnded 终止态），不是 phase1 → phase2 → ... → phaseN 的单向线性脚本。', anti:'7 phase 单向脚本（入→砸墙→代差→能量→选门→秒结→收钱）—— 4746 行 React + 每 phase 独立交互，仍是"被推着走的观众体验"，零评价。', rel:'P-022, P-043' },
+  { code:'P-041', cat:'state', name:'状态机的台词/反馈是一等公民，数量阈值 ≥ 8 条', rule:'互动状态机里的角色台词（庄家 / 旁白 / 反派 / NPC）必须按"桌/关 × 结果"组合穷举，数量阈值 ≥ 8 条独立台词（dice_fate 是 16 条 = 4 桌 × 5 种结果）。台词数 < 5 条意味着用户在 2 轮内就会撞到重复。', anti:'互动作品只写 3 条结果台词反复轮播 → 玩第 3 局用户就识破"就这几句"。', rel:'P-040' },
+  { code:'P-042', cat:'state', name:'情感载体必须物理化（不是页面是物体）', rule:'情感作品（情书 / 信件 / 礼物 / 邀请）必须把载体做成"会动的物体"——信封折叠 → 拉封缄 → 抽信纸；优惠券 rotateY flip；骰子转动；按钮振动；邮戳 stamp pop。把"信件做成页面"是 anti-pattern。', anti:'520 情书做成"粉色背景 + 爱心特效 + 动态文字"的单屏宣告页 → 圈外人夸营销策略，圈内人停在一句 GOOD + 1 红包。', rel:'P-022' },
+  { code:'P-043', cat:'state', name:'诚实弧线（怀疑/低点/失败是必需而非可选）', rule:'宣言 / 影片 / portfolio / 互动叙事都必须包含"怀疑低点 / 失败可能 / 挫折一幕"。没有低谷的弧线只是吹牛——风险不真实，胜利就不真实。', anti:'5 选 1 互动里 4 个错误选项被贴"错的"标签、1 个正确选项被引导高亮 → 这是选择题不是选择，用户没有"真输过"的体验。', rel:'P-040' },
+  { code:'P-044', cat:'state', name:'栏目差异化：每章独立排版语言，不止动效', rule:'杂志 / 长卷 / 多章节作品的"栏目差异化"必须做到**每章有独立排版语言**——不止动效不同（P-015），还包括字体处理（衬线 vs 黑体 vs 等宽 vs 手写体）、版式（满版 vs 居中 vs 双栏 vs 边注）、节奏密度（疏 vs 密）、装饰元素（页码 vs 罗马数字 vs 章节戳）。', anti:'6 屏共用同一种"主标题 + 副标题 + 长段正文"的排版骨架 → 再精致也只是被精装的博客。', rel:'P-015, P-037' },
+
+  // 反响信号 P-045 ~ P-049（脱敏版）
+  { code:'P-045', cat:'signal', name:'内行人称赞分级', rule:'圈内反响有明确分级——**高位**：核心圈内人亲发红包 ≥ 5 个 / 连发语音 ≥ 3 条；**中位**：圈内人文字赞美句 / 一句 GOOD 加 1-2 红包；**警戒位**：圈内人沉默（零评价零红包）；**最低位**：圈内人吐槽 / anti-pattern call-out。吐槽比沉默更严厉——沉默是"不打算说"，吐槽是"必须出来纠偏"。', anti:'把一句"GOOD" + 1 红包当作 S 档信号 → 真实档位是 A 档（中等偏上）。', rel:'P-046, P-049' },
+  { code:'P-046', cat:'signal', name:'红包来源拆解（核心圈 vs 路人必须分开数）', rule:'作品红包总数不等于真实评分。必须按来源拆解——**核心圈亲发的红包**是对作品工艺/品味的直接投票，**路人红包**可能是 (a) 被作品打动 / (b) 帮作者完成情感事件 / (c) 蹭热点凑红包。路人红包数高但核心圈沉默 = B 档作品被借势刷上来。', anti:'某作品总红包 13 个但核心圈红包 = 0，路人 13 个里大头是"帮 X 表白" → 作品本质是工具页，分数 82 是情感事件的副产物。', rel:'P-045, P-047' },
+  { code:'P-047', cat:'signal', name:'群友焦点判断：讨论作品 vs 讨论作者/事件', rule:'群友评论的"焦点指向"是关键线索。**指向作品**的关键词：神了 / 我要哭了 / 卧槽这交互 / 真想学（学工艺）/ 路人驻足；**指向作者或外部事件**的关键词：太爱你了哥 / 太仗义了 / 我饭钱都给你了 / 想复刻（学技术）/ 太有操作了（夸营销策略）。', anti:'群友刷屏"太牛逼了 + 太爱你了 + 饭钱都给你了" → 100% 指向情感事件，作品本身是双输入框工具页。', rel:'P-046, P-048' },
+  { code:'P-048', cat:'signal', name:'"想学"vs"太有操作了" 的判分线', rule:'"我是真想学"和"太有操作了"是**两个完全不同等级的语义**。"想学"是对**作品工艺**的认可（信封折叠 / 3D 翻牌怎么做）—— S 档信号；"想复刻"是对**交互编排技术**的认可—— A 档信号；"太有操作了"是对**营销动作/策略**的认可—— 不是对作品的赞美，是对人的策略的赞美，A/B 档信号。', anti:'把群友"太有操作了"当作"作品反响极佳"写进 verdict → 实际是营销策略被认可。', rel:'P-042, P-047' },
+  { code:'P-049', cat:'signal', name:'作品必须在 HTML 内自我成立', rule:'剥离一切外部上下文（作者是谁、群里发生过什么、当天是什么节日、收件人是谁），作品仅凭 HTML 本身能不能撑起它的分数？S 档作品——任何人打开都能读懂作品在讲什么，文字 + 数据 + 动效 + 切场全在 HTML 内自成体系；工具壳——离开特定情感事件就只剩双输入框。', anti:'把"配置工具页"当作品发，骨架只有输入 + 生成按钮 + 复制按钮，没有叙事、章节、BGM、动效编排 → 离开外部故事就是工具壳。', rel:'P-030, P-046' },
+];
+
+/* ===================== Mobile fallback render ===================== */
+(function renderMobile(){
+  const body = document.getElementById('mlist-body');
+  if(!body) return;
+  body.innerHTML = P.map(p => {
+    const c = CAT[p.cat];
+    return `<div class="m-card">
+      <div class="m-cat"><span class="swatch" style="background:${c.hex};color:${c.hex}"></span>${c.name}</div>
+      <div class="m-code">${p.code}</div>
+      <div class="m-name">${p.name}</div>
+      <div class="m-rule">${p.rule}</div>
+    </div>`;
+  }).join('');
+})();
+
+/* ===================== Detect mobile, skip 3D if so ===================== */
+const isTouch = matchMedia('(hover:none), (pointer:coarse)').matches;
+if(isTouch){
+  document.getElementById('intro').classList.add('gone');
+} else {
+
+/* ===================== Three.js cosmos ===================== */
+const container = document.getElementById('cosmos');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x06060a, 0.018);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 0, 28);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, 1.6));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x06060a, 1);
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.rotateSpeed = 0.5;
+controls.zoomSpeed = 0.6;
+controls.enablePan = false;
+controls.minDistance = 8;
+controls.maxDistance = 60;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.35;
+
+/* ----- 远景星尘背景（深空感） ----- */
+const starGeo = new THREE.BufferGeometry();
+const starCount = 1400;
+const starPos = new Float32Array(starCount * 3);
+for(let i=0;i<starCount;i++){
+  // 远处球壳
+  const r = 60 + Math.random()*60;
+  const theta = Math.random()*Math.PI*2;
+  const phi = Math.acos(2*Math.random()-1);
+  starPos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+  starPos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+  starPos[i*3+2] = r*Math.cos(phi);
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({
+  color:0xf8f4ea, size:0.08, transparent:true, opacity:0.55,
+  sizeAttenuation:true, depthWrite:false
+});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+/* ----- 中等距离的尘埃 ----- */
+const dustGeo = new THREE.BufferGeometry();
+const dustCount = 600;
+const dustPos = new Float32Array(dustCount*3);
+const dustCol = new Float32Array(dustCount*3);
+const colorPicks = [
+  new THREE.Color(0xffb88a), new THREE.Color(0x6ad4ff), new THREE.Color(0xc9a4ff),
+  new THREE.Color(0xffd06a), new THREE.Color(0xff8aa8)
+];
+for(let i=0;i<dustCount;i++){
+  const r = 18 + Math.random()*22;
+  const theta = Math.random()*Math.PI*2;
+  const phi = Math.acos(2*Math.random()-1);
+  dustPos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+  dustPos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+  dustPos[i*3+2] = r*Math.cos(phi);
+  const c = colorPicks[i%colorPicks.length];
+  dustCol[i*3]=c.r*0.4; dustCol[i*3+1]=c.g*0.4; dustCol[i*3+2]=c.b*0.4;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+dustGeo.setAttribute('color', new THREE.BufferAttribute(dustCol, 3));
+const dustMat = new THREE.PointsMaterial({
+  size:0.12, transparent:true, opacity:0.42,
+  sizeAttenuation:true, depthWrite:false, vertexColors:true
+});
+const dust = new THREE.Points(dustGeo, dustMat);
+scene.add(dust);
+
+/* ----- 49 颗 principle 星点（Sprite + 用 CanvasTexture 做柔晕） ----- */
+function makeGlowSprite(hex){
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64,64,2, 64,64,62);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.18, hex);
+  grad.addColorStop(0.55, hex.replace(')',',0.4)').replace('rgb','rgba'));
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0,0,128,128);
+  return new THREE.CanvasTexture(c);
+}
+function hexToRgb(h){
+  const m = h.replace('#','');
+  return 'rgb('+parseInt(m.substr(0,2),16)+','+parseInt(m.substr(2,2),16)+','+parseInt(m.substr(4,2),16)+')';
+}
+const glowTextures = {};
+Object.keys(CAT).forEach(k=>{
+  glowTextures[k] = makeGlowSprite(hexToRgb(CAT[k].hex));
+});
+
+/* Distribution: 8 category cluster centers on a sphere shell + jitter within cluster */
+const principlesGroup = new THREE.Group();
+scene.add(principlesGroup);
+
+// 8 cluster anchor directions evenly on sphere (fibonacci-ish manual placement)
+const catKeys = Object.keys(CAT);
+const clusterAnchors = {};
+const golden = Math.PI * (3 - Math.sqrt(5));
+catKeys.forEach((k, i) => {
+  const t = (i + 0.5) / catKeys.length;
+  const phi = Math.acos(1 - 2*t);
+  const theta = golden * i;
+  clusterAnchors[k] = new THREE.Vector3(
+    Math.sin(phi)*Math.cos(theta),
+    Math.sin(phi)*Math.sin(theta),
+    Math.cos(phi)
+  );
+});
+
+const sprites = []; // {mesh, p, basePos, baseScale, phase}
+const catRadiusBase = 11.0; // 主球壳半径
+P.forEach((p, idx) => {
+  const c = CAT[p.cat];
+  const tex = glowTextures[p.cat];
+  const mat = new THREE.SpriteMaterial({
+    map: tex, color: c.color, transparent:true,
+    blending: THREE.AdditiveBlending, depthWrite:false, opacity:0.92
+  });
+  const sprite = new THREE.Sprite(mat);
+
+  // 在 cluster anchor 周围分布（球面 patch）
+  const anchor = clusterAnchors[p.cat].clone();
+  // 构造一个绕 anchor 的局部基底
+  const up = Math.abs(anchor.y) < 0.95 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+  const tangent = new THREE.Vector3().crossVectors(up, anchor).normalize();
+  const bitangent = new THREE.Vector3().crossVectors(anchor, tangent).normalize();
+
+  // 在 patch 上 jitter（角度半径），同时让半径在 9~13 之间漂
+  const angle = Math.random() * Math.PI * 2;
+  const patchR = 0.20 + Math.random() * 0.55; // 在 cluster 内角度偏移
+  const offsetDir = anchor.clone()
+    .multiplyScalar(Math.cos(patchR))
+    .addScaledVector(tangent, Math.sin(patchR)*Math.cos(angle))
+    .addScaledVector(bitangent, Math.sin(patchR)*Math.sin(angle))
+    .normalize();
+  const r = catRadiusBase + (Math.random()-0.5) * 4.5;
+  const pos = offsetDir.multiplyScalar(r);
+
+  sprite.position.copy(pos);
+  const baseScale = 0.7 + Math.random()*0.3;
+  sprite.scale.set(baseScale, baseScale, 1);
+  sprite.userData = { p, idx, baseScale, basePos: pos.clone(), phase: Math.random()*Math.PI*2, cat:p.cat };
+  principlesGroup.add(sprite);
+  sprites.push(sprite);
+});
+
+/* ----- 类内连线（让聚类更明显） ----- */
+const linesByCat = {};
+Object.keys(CAT).forEach(k=>{
+  const pts = sprites.filter(s=>s.userData.cat===k);
+  if(pts.length < 2) return;
+  // 连最近邻 2 个
+  const lineSegs = [];
+  pts.forEach((a, i)=>{
+    // 找 a 最近的 2 个
+    const dists = pts.map((b, j)=>({ j, d: i===j?Infinity:a.position.distanceTo(b.position) }))
+      .sort((x,y)=>x.d-y.d).slice(0,2);
+    dists.forEach(({j})=>{
+      if(j>i){ // 避免重复
+        lineSegs.push(a.position.x, a.position.y, a.position.z);
+        lineSegs.push(pts[j].position.x, pts[j].position.y, pts[j].position.z);
+      }
+    });
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(lineSegs, 3));
+  const m = new THREE.LineBasicMaterial({
+    color: CAT[k].color, transparent:true, opacity:0.10, depthWrite:false
+  });
+  const lines = new THREE.LineSegments(g, m);
+  principlesGroup.add(lines);
+  linesByCat[k] = lines;
+});
+
+/* ----- 中心微弱光球（cosmos 核心，仅暗示） ----- */
+const coreGeo = new THREE.IcosahedronGeometry(1.2, 1);
+const coreMat = new THREE.MeshBasicMaterial({
+  color: 0xffb88a, wireframe:true, transparent:true, opacity:0.10, depthWrite:false
+});
+const core = new THREE.Mesh(coreGeo, coreMat);
+scene.add(core);
+
+/* ----- Raycaster ----- */
+const raycaster = new THREE.Raycaster();
+raycaster.params.Sprite = { threshold: 0.5 };
+const mouse2D = new THREE.Vector2(-10, -10);
+let hovered = null;
+let locked = null;
+let dimCat = null; // 选中类别筛选
+
+window.addEventListener('pointermove', (e)=>{
+  mouse2D.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse2D.y = -(e.clientY / innerHeight) * 2 + 1;
+  // tooltip 跟手
+  const tt = document.getElementById('tooltip');
+  tt.style.left = e.clientX + 'px';
+  tt.style.top = e.clientY + 'px';
+  // 自定义光标
+  curOuter.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%,-50%)`;
+  curInner.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%,-50%)`;
+});
+
+const curOuter = document.getElementById('curOuter');
+const curInner = document.getElementById('curInner');
+const tooltipEl = document.getElementById('tooltip');
+const ttCode = document.getElementById('tt-code');
+const ttName = document.getElementById('tt-name');
+const focusLabel = document.getElementById('focus-label');
+
+renderer.domElement.addEventListener('click', ()=>{
+  if(hovered){
+    lockOn(hovered);
+  } else {
+    // 点击空白处不解锁（只有点 close 才解锁，避免拖拽误关）
+  }
+});
+
+function lockOn(sprite){
+  locked = sprite;
+  controls.autoRotate = false;
+  renderDetail(sprite.userData.p);
+  document.getElementById('detail').classList.add('open');
+  document.getElementById('hint').classList.add('fade');
+}
+function unlock(){
+  locked = null;
+  document.getElementById('detail').classList.remove('open');
+  setTimeout(()=>{
+    const dc = document.getElementById('detail-content');
+    dc.innerHTML = '<div class="empty-hint">point at a star · click to lock</div>';
+  }, 700);
+  controls.autoRotate = true;
+}
+document.getElementById('detail-close').addEventListener('click', unlock);
+
+function renderDetail(p){
+  const c = CAT[p.cat];
+  const html = `
+    <div class="cat-label">
+      <span class="swatch" style="background:${c.hex};color:${c.hex}"></span>${c.name}
+    </div>
+    <div class="code">${p.code}</div>
+    <h2>${p.name}</h2>
+    <div class="section-title">规则 / Rule</div>
+    <div class="rule">${p.rule}</div>
+    <div class="section-title">反例 / Anti-example</div>
+    <div class="anti">${p.anti}</div>
+    <div class="section-title">关联 / Related</div>
+    <div class="relate">${p.rel}</div>
+  `;
+  document.getElementById('detail-content').innerHTML = html;
+}
+
+/* ----- Legend interactions (filter by category) ----- */
+document.querySelectorAll('#legend .row').forEach(row=>{
+  row.addEventListener('click', ()=>{
+    const cat = row.dataset.cat;
+    if(dimCat === cat){
+      dimCat = null;
+      document.querySelectorAll('#legend .row').forEach(r=>r.classList.remove('dim'));
+    } else {
+      dimCat = cat;
+      document.querySelectorAll('#legend .row').forEach(r=>{
+        r.classList.toggle('dim', r.dataset.cat !== cat);
+      });
+    }
+  });
+});
+
+/* ----- Animation loop ----- */
+let raf = null;
+const clock = new THREE.Clock();
+
+function animate(){
+  const t = clock.getElapsedTime();
+
+  // sprite 漂浮 + 呼吸缩放
+  sprites.forEach(s=>{
+    const u = s.userData;
+    const breathe = 1 + Math.sin(t * 0.6 + u.phase) * 0.08;
+    const base = u.baseScale;
+    // 类别筛选透明度
+    let targetOp = 0.92;
+    if(dimCat && u.cat !== dimCat) targetOp = 0.12;
+    s.material.opacity += (targetOp - s.material.opacity) * 0.08;
+
+    // hover 放大
+    if(s === hovered || s === locked){
+      const target = base * 2.2;
+      s.scale.x += (target - s.scale.x) * 0.18;
+      s.scale.y += (target - s.scale.y) * 0.18;
+    } else {
+      const target = base * breathe;
+      s.scale.x += (target - s.scale.x) * 0.12;
+      s.scale.y += (target - s.scale.y) * 0.12;
+    }
+
+    // 极轻漂浮
+    const drift = 0.06;
+    s.position.x = u.basePos.x + Math.sin(t*0.4 + u.phase)*drift;
+    s.position.y = u.basePos.y + Math.cos(t*0.35 + u.phase*1.2)*drift;
+    s.position.z = u.basePos.z + Math.sin(t*0.3 + u.phase*0.7)*drift;
+  });
+
+  // 类内连线整体也按 dim 处理
+  Object.keys(linesByCat).forEach(k=>{
+    const l = linesByCat[k];
+    let targetOp = 0.10;
+    if(dimCat && k !== dimCat) targetOp = 0.025;
+    if(dimCat && k === dimCat) targetOp = 0.22;
+    l.material.opacity += (targetOp - l.material.opacity) * 0.08;
+  });
+
+  // 远景星尘缓慢旋转
+  stars.rotation.y = t * 0.01;
+  dust.rotation.y = -t * 0.015;
+  dust.rotation.x = Math.sin(t * 0.1) * 0.05;
+
+  // core 旋转
+  core.rotation.x = t * 0.1;
+  core.rotation.y = t * 0.14;
+
+  // raycast
+  raycaster.setFromCamera(mouse2D, camera);
+  const hits = raycaster.intersectObjects(sprites, false);
+  if(hits.length > 0){
+    const newHover = hits[0].object;
+    if(newHover !== hovered){
+      hovered = newHover;
+      const p = hovered.userData.p;
+      ttCode.textContent = p.code;
+      ttName.textContent = p.name;
+      tooltipEl.classList.add('show');
+      curOuter.classList.add('hot');
+      curInner.classList.add('hot');
+      // 暖光 color hint per cat
+      curOuter.style.borderColor = CAT[p.cat].hex;
+      curOuter.style.boxShadow = `0 0 24px ${CAT[p.cat].hex}66`;
+      curInner.style.background = CAT[p.cat].hex;
+      if(!locked) focusLabel.textContent = `${p.code} · ${p.name}`;
+      focusLabel.classList.remove('empty');
+    }
+  } else {
+    if(hovered){
+      hovered = null;
+      tooltipEl.classList.remove('show');
+      curOuter.classList.remove('hot');
+      curInner.classList.remove('hot');
+      curOuter.style.borderColor = '';
+      curOuter.style.boxShadow = '';
+      curInner.style.background = '';
+      if(!locked){
+        focusLabel.textContent = 'none — drift in the dark';
+        focusLabel.classList.add('empty');
+      }
+    }
+  }
+  if(locked){
+    focusLabel.textContent = `LOCKED · ${locked.userData.p.code} · ${locked.userData.p.name}`;
+    focusLabel.classList.remove('empty');
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  raf = requestAnimationFrame(animate);
+}
+
+raf = requestAnimationFrame(animate);
+
+/* ----- Resize ----- */
+window.addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ----- Visibility cleanup (P-020!) ----- */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    if(raf){ cancelAnimationFrame(raf); raf = null; }
+  } else {
+    if(!raf){ clock.start(); raf = requestAnimationFrame(animate); }
+  }
+});
+window.addEventListener('beforeunload', ()=>{
+  if(raf) cancelAnimationFrame(raf);
+});
+
+/* ----- Hide intro once first frame ----- */
+setTimeout(()=>{
+  document.getElementById('intro').classList.add('gone');
+}, 900);
+
+/* ----- 自动淡出 hint ----- */
+setTimeout(()=>{
+  document.getElementById('hint').classList.add('fade');
+}, 6500);
+
+} // end of desktop branch
+
+</script>
+</body>
+</html>

@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>我训练了一个 AI 学会造顶级网站 · S-tier Closed Loop</title>
+<style>
+:root{
+  --stageW:min(100vw,177.777vh);
+  --u:calc(var(--stageW)/100);
+  --bone:#F4ECDA;
+  --red:#E23B22;
+  --redDim:#9b2a18;
+  --gold:#D8AA58;
+  --ink:#0a0606;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100%;height:100%;overflow:hidden;background:#000;color:var(--bone);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+body{display:flex;align-items:center;justify-content:center}
+
+/* 16:9 stage */
+.stage{
+  position:relative;width:100vw;height:56.25vw;max-width:177.777vh;max-height:100vh;
+  background:#000;overflow:hidden;isolation:isolate;
+}
+.bg{position:absolute;inset:0;z-index:0;background:#000;transition:background .7s ease}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;z-index:900;pointer-events:none}
+
+/* Grain (T6) */
+.grain{
+  position:absolute;inset:-20%;z-index:6;pointer-events:none;opacity:.16;mix-blend-mode:overlay;
+  background-image:
+    radial-gradient(rgba(255,255,255,.55) 1px,transparent 1.5px),
+    radial-gradient(rgba(255,255,255,.4) 1px,transparent 1.5px);
+  background-size:3px 3px,5px 5px;
+  background-position:0 0,1.5px 2px;
+  animation:grainShift 1.8s steps(6) infinite;
+}
+@keyframes grainShift{
+  0%{transform:translate(0,0)}
+  20%{transform:translate(-2%,1%)}
+  40%{transform:translate(1%,-2%)}
+  60%{transform:translate(-1%,-1%)}
+  80%{transform:translate(2%,2%)}
+  100%{transform:translate(0,0)}
+}
+
+/* Warm red radial vignette (always on) */
+.vignette{
+  position:absolute;inset:0;z-index:5;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%,transparent 30%,rgba(0,0,0,.55) 78%,#000 100%);
+}
+
+/* Brand corners */
+.brand{
+  position:absolute;left:calc(var(--u)*1.8);top:calc(var(--u)*1.5);z-index:850;
+  font:900 calc(var(--u)*.62)/1 Impact,"Arial Black";letter-spacing:.28em;color:rgba(244,236,218,.32);
+}
+.timeTxt{
+  position:absolute;right:calc(var(--u)*1.8);top:calc(var(--u)*1.5);z-index:850;
+  font:calc(var(--u)*.72)/1 Consolas,monospace;color:rgba(244,236,218,.38);letter-spacing:.08em;
+}
+.footTxt{
+  position:absolute;left:50%;bottom:calc(var(--u)*1.2);transform:translateX(-50%);z-index:850;
+  font:900 calc(var(--u)*.55)/1 Impact,"Arial Black";letter-spacing:.42em;color:rgba(244,236,218,.18);white-space:nowrap;
+}
+
+.redText{color:var(--red)}
+.goldText{color:var(--gold)}
+.dimText{color:rgba(244,236,218,.5)}
+
+/* Scene base */
+.scene{position:absolute;inset:0;z-index:30;opacity:0;transition:opacity .7s ease}
+.scene.on{opacity:1}
+
+/* =========== SCENE 1 · 黑幕开场 =========== */
+#scene1 .declareSmall{
+  position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);z-index:120;
+  font-weight:900;font-size:calc(var(--u)*1.5);letter-spacing:.5em;color:rgba(244,236,218,.55);
+  opacity:0;text-align:center;
+}
+.scene.on #scene1 .declareSmall, #scene1.on .declareSmall{animation:fadeIn 1.0s .3s ease forwards}
+#scene1 .titleA{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);z-index:130;text-align:center;
+  font:1000 calc(var(--u)*8.4)/.94 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.06em;
+  color:var(--bone);opacity:0;white-space:nowrap;
+  text-shadow:0 calc(var(--u)*.3) calc(var(--u)*2) rgba(0,0,0,.7);
+}
+#scene1.on .titleA{animation:bigIn 1.2s 1.0s cubic-bezier(.16,1,.3,1) forwards}
+#scene1 .titleB{
+  position:absolute;left:50%;top:68%;transform:translate(-50%,-50%) scale(.92);z-index:130;text-align:center;
+  font:1000 calc(var(--u)*5.8)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.05em;
+  color:var(--red);opacity:0;white-space:nowrap;
+  text-shadow:0 0 calc(var(--u)*1.4) rgba(226,59,34,.4);
+}
+#scene1.on .titleB{animation:bigIn 1.0s 2.4s cubic-bezier(.16,1,.3,1) forwards}
+#scene1 .sigBar{
+  position:absolute;left:50%;top:84%;transform:translate(-50%,-50%);z-index:120;
+  font:900 calc(var(--u)*.9)/1 Consolas,monospace;letter-spacing:.36em;color:rgba(216,170,88,.62);opacity:0;
+}
+#scene1.on .sigBar{animation:fadeIn .8s 4.2s ease forwards}
+@keyframes bigIn{to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes fadeIn{to{opacity:1}}
+
+/* =========== SCENE 2 · 问题 =========== */
+#scene2 .probLabel{
+  position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);z-index:120;text-align:center;
+  font:900 calc(var(--u)*1.3)/1 Consolas,monospace;letter-spacing:.42em;color:rgba(244,236,218,.55);
+  opacity:0;
+}
+#scene2.on .probLabel{animation:fadeIn .8s .2s ease forwards}
+#scene2 .gauge{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;
+  width:calc(var(--u)*60);height:calc(var(--u)*60);opacity:0;
+}
+#scene2.on .gauge{animation:fadeIn 1.2s .6s ease forwards}
+#scene2 .gauge svg{width:100%;height:100%;overflow:visible}
+#scene2 .gauge .ring{fill:none;stroke:rgba(244,236,218,.13);stroke-width:.5}
+#scene2 .gauge .arcSelf{fill:none;stroke:var(--gold);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:282.7;stroke-dashoffset:282.7;}
+#scene2 .gauge .arcReal{fill:none;stroke:var(--red);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:282.7;stroke-dashoffset:282.7;}
+#scene2.on .gauge .arcSelf{animation:arcSelf 1.6s 1.4s cubic-bezier(.16,1,.3,1) forwards}
+#scene2.on .gauge .arcReal{animation:arcReal 1.6s 3.2s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes arcSelf{to{stroke-dashoffset:28.3}} /* 9/10 -> 282.7*(1-.9)=28.27 */
+@keyframes arcReal{to{stroke-dashoffset:84.8}} /* 7/10 -> 282.7*(1-.7)=84.81 */
+#scene2 .selfNum{
+  position:absolute;left:34%;top:50%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*5.6)/1 Impact,"Arial Black";color:var(--gold);
+}
+#scene2.on .selfNum{animation:popIn .7s 2.0s cubic-bezier(.16,1,.3,1) forwards}
+#scene2 .realNum{
+  position:absolute;left:66%;top:50%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*5.6)/1 Impact,"Arial Black";color:var(--red);
+  text-shadow:0 0 calc(var(--u)*1.4) rgba(226,59,34,.4);
+}
+#scene2.on .realNum{animation:popIn .7s 3.8s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.6)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+#scene2 .selfLbl{position:absolute;left:34%;top:72%;transform:translate(-50%,-50%);z-index:140;font:900 calc(var(--u)*1.1)/1 sans-serif;letter-spacing:.32em;color:rgba(216,170,88,.78);opacity:0}
+#scene2 .realLbl{position:absolute;left:66%;top:72%;transform:translate(-50%,-50%);z-index:140;font:900 calc(var(--u)*1.1)/1 sans-serif;letter-spacing:.32em;color:rgba(226,59,34,.85);opacity:0}
+#scene2.on .selfLbl{animation:fadeIn .6s 2.4s ease forwards}
+#scene2.on .realLbl{animation:fadeIn .6s 4.2s ease forwards}
+#scene2 .probTitle{
+  position:absolute;left:50%;top:88%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*2.4)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.03em;color:var(--bone);
+}
+#scene2.on .probTitle{animation:fadeIn .8s 5.0s ease forwards}
+
+/* =========== SCENE 3 · 观察 53 样本 =========== */
+#scene3 .obsLabel{
+  position:absolute;left:50%;top:14%;transform:translate(-50%,-50%);z-index:120;text-align:center;
+  font:900 calc(var(--u)*1.1)/1 Consolas,monospace;letter-spacing:.42em;color:rgba(244,236,218,.55);opacity:0;
+}
+#scene3.on .obsLabel{animation:fadeIn .7s .2s ease forwards}
+#scene3 .gridWrap{
+  position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);z-index:60;
+  width:calc(var(--u)*78);height:calc(var(--u)*42);opacity:0;
+}
+#scene3.on .gridWrap{animation:fadeIn 1.0s .6s ease forwards}
+#scene3 .cell{
+  position:absolute;width:calc(var(--u)*7.6);height:calc(var(--u)*4.2);
+  background:rgba(244,236,218,.04);border:1px solid rgba(244,236,218,.14);
+  border-radius:calc(var(--u)*.4);opacity:0;
+}
+#scene3 .cell.lit{background:rgba(216,170,88,.16);border-color:rgba(216,170,88,.7);box-shadow:0 0 calc(var(--u)*1.4) rgba(216,170,88,.4)}
+#scene3.on .cell{animation:cellIn .5s ease forwards;animation-delay:var(--cd,0s)}
+@keyframes cellIn{to{opacity:1}}
+#scene3 .bigNum{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*22)/1 Impact,"Arial Black";color:var(--bone);letter-spacing:-.05em;
+  text-shadow:0 0 calc(var(--u)*2) rgba(226,59,34,.3),0 calc(var(--u)*.4) calc(var(--u)*2) rgba(0,0,0,.8);
+}
+#scene3.on .bigNum{animation:popIn .9s 4.2s cubic-bezier(.16,1,.3,1) forwards}
+#scene3 .obsSub{
+  position:absolute;left:50%;top:88%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*2)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.02em;
+  color:var(--bone);
+}
+#scene3.on .obsSub{animation:fadeIn .8s 5.0s ease forwards}
+
+/* =========== SCENE 4 · 提炼 49 P =========== */
+#scene4 .rainCol{position:absolute;top:-8%;font:900 calc(var(--u)*.9)/1.3 Consolas,monospace;color:rgba(216,170,88,.5);white-space:pre;
+  writing-mode:vertical-rl;letter-spacing:.04em;opacity:0;animation:rainFall 7s linear infinite;animation-delay:var(--rd,0s);}
+@keyframes rainFall{0%{transform:translateY(0);opacity:0}10%{opacity:.55}90%{opacity:.55}100%{transform:translateY(120vh);opacity:0}}
+#scene4.on .rainCol{opacity:.55}
+#scene4 .extractWrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:120;text-align:center;opacity:0;}
+#scene4.on .extractWrap{animation:fadeIn .9s .4s ease forwards}
+#scene4 .pCount{
+  font:1000 calc(var(--u)*16)/1 Impact,"Arial Black";color:var(--gold);letter-spacing:-.05em;
+  text-shadow:0 0 calc(var(--u)*2) rgba(216,170,88,.5);display:block;
+}
+#scene4 .pUnit{
+  font:900 calc(var(--u)*4)/1 Impact,"Arial Black";color:var(--bone);letter-spacing:.06em;display:block;margin-top:calc(var(--u)*.4);
+}
+#scene4 .extractCap{
+  position:absolute;left:50%;top:84%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*2.2)/1.12 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.03em;color:var(--bone);
+  max-width:calc(var(--u)*70);
+}
+#scene4.on .extractCap{animation:fadeIn .8s 1.6s ease forwards}
+#scene4 .extractCapB{
+  position:absolute;left:50%;top:94%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:900 calc(var(--u)*1.3)/1 Consolas,monospace;letter-spacing:.32em;color:var(--red);
+}
+#scene4.on .extractCapB{animation:fadeIn .8s 3.0s ease forwards}
+
+/* =========== SCENE 5 · Rubric 28R =========== */
+#scene5 .rubricBoard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100;width:calc(var(--u)*86);height:calc(var(--u)*40);opacity:0;}
+#scene5.on .rubricBoard{animation:fadeIn .8s .3s ease forwards}
+#scene5 .rcol{
+  position:absolute;top:0;bottom:0;width:calc(var(--u)*27);padding:calc(var(--u)*1.6);
+  background:rgba(244,236,218,.03);border:1px solid rgba(244,236,218,.12);border-radius:calc(var(--u)*.4);
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+#scene5 .rcol.a{left:0}
+#scene5 .rcol.b{left:50%;transform:translateX(-50%)}
+#scene5 .rcol.c{right:0}
+#scene5 .rcol h4{font:900 calc(var(--u)*1.2)/1 Consolas,monospace;letter-spacing:.32em;color:rgba(244,236,218,.55);text-align:center}
+#scene5 .rcol .axisName{font:1000 calc(var(--u)*2.6)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.03em;color:var(--bone);text-align:center;margin-top:calc(var(--u)*.6)}
+#scene5 .rcol .axisSub{font:900 calc(var(--u)*.9)/1.3 sans-serif;letter-spacing:.18em;color:rgba(216,170,88,.7);text-align:center;margin-top:calc(var(--u)*.8)}
+#scene5 .rcol .wgt{font:1000 calc(var(--u)*5.4)/1 Impact,"Arial Black";color:var(--gold);letter-spacing:-.04em;text-align:center}
+#scene5 .rcol.b .wgt{color:var(--red);text-shadow:0 0 calc(var(--u)*1.2) rgba(226,59,34,.3)}
+#scene5 .rcol.c .wgt{color:var(--bone)}
+#scene5 .rcol .rxx{font:900 calc(var(--u)*.85)/1.4 Consolas,monospace;letter-spacing:.18em;color:rgba(244,236,218,.4);text-align:center;margin-top:calc(var(--u)*.4)}
+#scene5 .formula{
+  position:absolute;left:50%;bottom:8%;transform:translate(-50%,0);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*1.8)/1 Consolas,monospace;letter-spacing:.06em;color:var(--bone);
+  padding:calc(var(--u)*1) calc(var(--u)*2);background:rgba(0,0,0,.55);border:1px solid rgba(216,170,88,.4);border-radius:calc(var(--u)*.5);
+}
+#scene5.on .formula{animation:fadeIn .8s 2.6s ease forwards}
+#scene5 .rubricLabel{
+  position:absolute;left:50%;top:8%;transform:translate(-50%,-50%);z-index:120;text-align:center;
+  font:900 calc(var(--u)*1.1)/1 Consolas,monospace;letter-spacing:.42em;color:rgba(244,236,218,.55);opacity:0;
+}
+#scene5.on .rubricLabel{animation:fadeIn .7s .1s ease forwards}
+
+/* =========== SCENE 6 · Critic 揭穿 =========== */
+#scene6 .criticTag{position:absolute;left:50%;top:14%;transform:translate(-50%,-50%);z-index:120;text-align:center;
+  font:900 calc(var(--u)*1.2)/1 Consolas,monospace;letter-spacing:.42em;color:var(--red);opacity:0;
+  text-shadow:0 0 calc(var(--u)*1.2) rgba(226,59,34,.4);}
+#scene6.on .criticTag{animation:fadeIn .6s .2s ease forwards}
+#scene6 .splitL{
+  position:absolute;left:6%;top:50%;transform:translate(0,-50%) translateX(-30px);z-index:100;width:38%;text-align:center;opacity:0;
+}
+#scene6 .splitR{
+  position:absolute;right:6%;top:50%;transform:translate(0,-50%) translateX(30px);z-index:100;width:38%;text-align:center;opacity:0;
+}
+#scene6.on .splitL{animation:splitInL .9s .8s cubic-bezier(.16,1,.3,1) forwards}
+#scene6.on .splitR{animation:splitInR .9s .8s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes splitInL{to{opacity:1;transform:translate(0,-50%) translateX(0)}}
+@keyframes splitInR{to{opacity:1;transform:translate(0,-50%) translateX(0)}}
+#scene6 .role{font:900 calc(var(--u)*1.4)/1 Consolas,monospace;letter-spacing:.32em;color:rgba(244,236,218,.55);margin-bottom:calc(var(--u)*1.4)}
+#scene6 .score{font:1000 calc(var(--u)*9)/1 Impact,"Arial Black";letter-spacing:-.05em;line-height:.95}
+#scene6 .scoreA{color:var(--gold);text-shadow:0 0 calc(var(--u)*1.4) rgba(216,170,88,.4)}
+#scene6 .scoreB{color:var(--red);text-shadow:0 0 calc(var(--u)*1.4) rgba(226,59,34,.4)}
+#scene6 .scoreSub{font:900 calc(var(--u)*1)/1 sans-serif;letter-spacing:.32em;color:rgba(244,236,218,.5);margin-top:calc(var(--u)*1)}
+#scene6 .vsLine{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:120;
+  width:calc(var(--u)*.4);height:0;background:var(--red);opacity:0;
+  box-shadow:0 0 calc(var(--u)*1.4) rgba(226,59,34,.55);
+}
+#scene6.on .vsLine{animation:vsGrow 1.0s 2.4s cubic-bezier(.8,0,.2,1) forwards}
+@keyframes vsGrow{to{opacity:.95;height:calc(var(--u)*36)}}
+#scene6 .inflateTag{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.6);z-index:160;opacity:0;
+  font:1000 calc(var(--u)*4.6)/1 Impact,"Arial Black";letter-spacing:-.03em;color:var(--red);white-space:nowrap;
+  text-shadow:0 0 calc(var(--u)*1.8) rgba(226,59,34,.6),0 calc(var(--u)*.3) calc(var(--u)*1.2) rgba(0,0,0,.85);
+  padding:calc(var(--u)*.6) calc(var(--u)*1.5);
+}
+#scene6.on .inflateTag{animation:inflatePunch .8s 3.4s cubic-bezier(.16,1,.3,1) forwards, inflateShake .25s 4.2s 3}
+@keyframes inflatePunch{to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes inflateShake{0%,100%{transform:translate(-50%,-50%) scale(1)}25%{transform:translate(-52%,-50%) scale(1)}75%{transform:translate(-48%,-50%) scale(1)}}
+#scene6 .criticBottom{
+  position:absolute;left:50%;bottom:8%;transform:translate(-50%,0);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*2)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.03em;color:var(--bone);
+}
+#scene6.on .criticBottom{animation:fadeIn .8s 5.0s ease forwards}
+
+/* =========== SCENE 7 · S 档闭环 4.55 -> 4.95 =========== */
+#scene7 .sLabel{position:absolute;left:50%;top:14%;transform:translate(-50%,-50%);z-index:120;text-align:center;
+  font:900 calc(var(--u)*1.2)/1 Consolas,monospace;letter-spacing:.42em;color:rgba(216,170,88,.7);opacity:0;}
+#scene7.on .sLabel{animation:fadeIn .7s .2s ease forwards}
+#scene7 .scoreBigWrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:130;text-align:center;opacity:0;
+}
+#scene7.on .scoreBigWrap{animation:fadeIn .8s .6s ease forwards}
+#scene7 .scoreNow{
+  font:1000 calc(var(--u)*18)/.95 Impact,"Arial Black";letter-spacing:-.06em;color:var(--gold);display:inline-block;
+  text-shadow:0 0 calc(var(--u)*1.8) rgba(216,170,88,.55),0 calc(var(--u)*.4) calc(var(--u)*1.4) rgba(0,0,0,.8);
+  transition:color .2s ease,text-shadow .2s ease;
+}
+#scene7 .scoreNow.sLock{color:var(--red);text-shadow:0 0 calc(var(--u)*2.4) rgba(226,59,34,.75),0 calc(var(--u)*.4) calc(var(--u)*1.4) rgba(0,0,0,.8)}
+#scene7 .stier{
+  position:absolute;left:50%;top:78%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*4.8)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:.04em;color:var(--bone);
+}
+#scene7.on .stier{animation:fadeIn .8s 4.0s ease forwards}
+#scene7 .stier .S{color:var(--red);text-shadow:0 0 calc(var(--u)*1.8) rgba(226,59,34,.5);font-size:1.4em;letter-spacing:-.04em;display:inline-block;transform:translateY(.05em)}
+#scene7 .threshold{
+  position:absolute;left:50%;top:90%;transform:translate(-50%,-50%);z-index:140;text-align:center;opacity:0;
+  font:900 calc(var(--u)*1.1)/1 Consolas,monospace;letter-spacing:.32em;color:rgba(244,236,218,.5);
+}
+#scene7.on .threshold{animation:fadeIn .8s 4.6s ease forwards}
+/* Threshold marker line */
+#scene7 .thresholdLine{
+  position:absolute;left:0;right:0;top:46%;height:1px;background:rgba(226,59,34,.45);z-index:80;opacity:0;
+  box-shadow:0 0 calc(var(--u)*.8) rgba(226,59,34,.35);
+}
+#scene7.on .thresholdLine{animation:fadeIn .6s 2.4s ease forwards}
+#scene7 .thresholdLbl{
+  position:absolute;right:6%;top:46%;transform:translateY(-50%);z-index:90;opacity:0;
+  font:900 calc(var(--u)*1)/1 Consolas,monospace;letter-spacing:.32em;color:rgba(226,59,34,.78);
+}
+#scene7.on .thresholdLbl{animation:fadeIn .6s 2.6s ease forwards}
+
+/* =========== SCENE 8 · 收尾 =========== */
+#scene8 .endLine1{
+  position:absolute;left:50%;top:40%;transform:translate(-50%,-50%) scale(.9);z-index:130;text-align:center;opacity:0;
+  font:1000 calc(var(--u)*7.4)/1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.05em;color:var(--bone);white-space:nowrap;
+  text-shadow:0 calc(var(--u)*.3) calc(var(--u)*1.6) rgba(0,0,0,.7);
+}
+#scene8.on .endLine1{animation:bigIn 1.2s .4s cubic-bezier(.16,1,.3,1) forwards}
+#scene8 .endLine2{
+  position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);z-index:130;text-align:center;opacity:0;
+  font:900 calc(var(--u)*1.6)/1 Consolas,monospace;letter-spacing:.5em;color:var(--red);white-space:nowrap;
+}
+#scene8.on .endLine2{animation:fadeIn .8s 2.0s ease forwards}
+#scene8 .endSig{
+  position:absolute;left:50%;top:74%;transform:translate(-50%,-50%);z-index:130;text-align:center;opacity:0;
+  font:900 calc(var(--u)*1.2)/1 Consolas,monospace;letter-spacing:.36em;color:rgba(216,170,88,.75);
+}
+#scene8.on .endSig{animation:fadeIn .8s 3.0s ease forwards}
+#scene8 .endDot{
+  position:absolute;left:50%;top:86%;transform:translate(-50%,-50%);width:calc(var(--u)*.8);height:calc(var(--u)*.8);
+  background:var(--red);border-radius:50%;z-index:130;opacity:0;
+  box-shadow:0 0 calc(var(--u)*1.6) rgba(226,59,34,.6);
+}
+#scene8.on .endDot{animation:dotPulse 2s 3.8s ease-in-out infinite, fadeIn .6s 3.8s ease forwards}
+@keyframes dotPulse{0%,100%{box-shadow:0 0 calc(var(--u)*1.6) rgba(226,59,34,.6)}50%{box-shadow:0 0 calc(var(--u)*3.2) rgba(226,59,34,.9)}}
+
+/* Start overlay */
+.startOverlay{
+  position:absolute;inset:0;z-index:9000;background:#000;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  cursor:pointer;
+}
+.startOverlay .hint{font:900 calc(var(--u)*1)/1 Consolas,monospace;letter-spacing:.42em;color:rgba(244,236,218,.45);margin-bottom:calc(var(--u)*2.2)}
+.startOverlay .title{font:1000 calc(var(--u)*5)/1.1 "PingFang SC","Microsoft YaHei",sans-serif;letter-spacing:-.04em;color:var(--bone);text-align:center;max-width:80%}
+.startOverlay .title .br{color:var(--red);text-shadow:0 0 calc(var(--u)*1.4) rgba(226,59,34,.35)}
+.startOverlay .play{
+  margin-top:calc(var(--u)*3);width:calc(var(--u)*8);height:calc(var(--u)*8);border-radius:50%;
+  border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;
+  color:var(--gold);font-size:calc(var(--u)*3);
+  transition:transform .3s ease,background .3s ease;
+}
+.startOverlay:hover .play{transform:scale(1.08);background:rgba(216,170,88,.15)}
+.startOverlay .sig{margin-top:calc(var(--u)*2.4);font:900 calc(var(--u)*.85)/1 Consolas,monospace;letter-spacing:.34em;color:rgba(216,170,88,.6)}
+
+/* Controls */
+.controls{
+  position:absolute;left:50%;bottom:calc(var(--u)*3);transform:translateX(-50%);z-index:9100;
+  display:flex;gap:calc(var(--u)*1);align-items:center;
+  background:rgba(0,0,0,.55);padding:calc(var(--u)*.7) calc(var(--u)*1.4);border-radius:calc(var(--u)*4);
+  border:1px solid rgba(216,170,88,.3);
+  opacity:0;transition:opacity .3s ease;pointer-events:none;
+}
+.controls.show{opacity:1;pointer-events:auto}
+.controls button{
+  background:transparent;border:none;color:var(--bone);cursor:pointer;
+  font:900 calc(var(--u)*1.2)/1 Consolas,monospace;padding:0 calc(var(--u)*.6);
+}
+.controls .scrubWrap{display:flex;align-items:center;gap:calc(var(--u)*.6);min-width:calc(var(--u)*40)}
+.controls input[type=range]{
+  flex:1;-webkit-appearance:none;height:calc(var(--u)*.3);background:rgba(244,236,218,.2);border-radius:calc(var(--u)*.2);
+}
+.controls input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:calc(var(--u)*1.1);height:calc(var(--u)*1.1);background:var(--red);border-radius:50%;cursor:pointer;
+}
+.controls .tc{font:900 calc(var(--u)*.85)/1 Consolas,monospace;color:rgba(244,236,218,.7);letter-spacing:.1em;min-width:calc(var(--u)*8);text-align:center}
+
+@media (max-width:480px){
+  .stage{width:100vw;height:56.25vw}
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="bg" id="bg"></div>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <div class="brand">YANG · KAIJIE · TRAINING PROTOCOL</div>
+  <div class="timeTxt" id="timeTxt">00:00 / 01:25</div>
+  <div class="footTxt">REEL · 01 · TRAINING AI TO BUILD S-TIER SITES</div>
+
+  <!-- SCENE 1 · 黑幕开场 -->
+  <div class="scene" id="scene1">
+    <div class="declareSmall">— A PROTOCOL FILM —</div>
+    <div class="titleA">我训练了一个 AI</div>
+    <div class="titleB">学会造顶级网站</div>
+    <div class="sigBar">YANG KAIJIE · 2026</div>
+  </div>
+
+  <!-- SCENE 2 · 问题 -->
+  <div class="scene" id="scene2">
+    <div class="probLabel">— PROBLEM —</div>
+    <div class="gauge">
+      <svg viewBox="0 0 100 100">
+        <circle class="ring" cx="50" cy="50" r="45"></circle>
+        <circle class="arcSelf" cx="50" cy="50" r="45" transform="rotate(-90 50 50)"></circle>
+      </svg>
+    </div>
+    <div class="selfNum">9</div>
+    <div class="selfLbl">SELF-RATED</div>
+    <div class="realNum">7</div>
+    <div class="realLbl">REAL · CRITIC</div>
+    <div class="probTitle">AI 自评 <span class="goldText">9 / 10</span>，实测只有 <span class="redText">7 / 10</span></div>
+  </div>
+
+  <!-- SCENE 3 · 观察 53 样本 -->
+  <div class="scene" id="scene3">
+    <div class="obsLabel">— STAGE 1 · OBSERVATION —</div>
+    <div class="gridWrap" id="grid3"></div>
+    <div class="bigNum">53</div>
+    <div class="obsSub">公认优秀的样本，全摊在桌上</div>
+  </div>
+
+  <!-- SCENE 4 · 提炼 49 P -->
+  <div class="scene" id="scene4">
+    <div class="extractWrap">
+      <span class="pCount">49</span>
+      <span class="pUnit">PRINCIPLES</span>
+    </div>
+    <div class="extractCap">从 53 个样本里，<span class="redText">浮现出 49 条共有的设计原则</span></div>
+    <div class="extractCapB">P-001 → P-049 · 每条都有反例</div>
+  </div>
+
+  <!-- SCENE 5 · Rubric 28R -->
+  <div class="scene" id="scene5">
+    <div class="rubricLabel">— STAGE 3 · RUBRIC —</div>
+    <div class="rubricBoard">
+      <div class="rcol a">
+        <h4>AXIS · A</h4>
+        <div>
+          <div class="axisName">技术</div>
+          <div class="axisSub">OBJECTIVE</div>
+        </div>
+        <div>
+          <div class="wgt">30%</div>
+          <div class="rxx">R-001 → R-009</div>
+        </div>
+      </div>
+      <div class="rcol b">
+        <h4>AXIS · B</h4>
+        <div>
+          <div class="axisName">审美</div>
+          <div class="axisSub">SEMI-OBJECTIVE</div>
+        </div>
+        <div>
+          <div class="wgt">35%</div>
+          <div class="rxx">R-010 → R-018</div>
+        </div>
+      </div>
+      <div class="rcol c">
+        <h4>AXIS · C</h4>
+        <div>
+          <div class="axisName">品味</div>
+          <div class="axisSub">TASTE</div>
+        </div>
+        <div>
+          <div class="wgt">35%</div>
+          <div class="rxx">R-019 → R-028</div>
+        </div>
+      </div>
+    </div>
+    <div class="formula">A × .30 + B × .35 + C × .35 = <span class="redText">SCORE</span></div>
+  </div>
+
+  <!-- SCENE 6 · Critic 揭穿 -->
+  <div class="scene" id="scene6">
+    <div class="criticTag">— GENERATOR vs CRITIC —</div>
+    <div class="splitL">
+      <div class="role">GENERATOR</div>
+      <div class="score scoreA">4.6</div>
+      <div class="scoreSub">SELF-RATED</div>
+    </div>
+    <div class="vsLine"></div>
+    <div class="splitR">
+      <div class="role">CRITIC</div>
+      <div class="score scoreB">3.1</div>
+      <div class="scoreSub">INDEPENDENT</div>
+    </div>
+    <div class="inflateTag">INFLATION&nbsp;&nbsp;+1.5</div>
+    <div class="criticBottom">不分离评分者，<span class="redText">AI 永远在给自己注水</span></div>
+  </div>
+
+  <!-- SCENE 7 · S 档闭环 -->
+  <div class="scene" id="scene7">
+    <div class="sLabel">— S-TIER CLOSED LOOP —</div>
+    <div class="thresholdLine"></div>
+    <div class="thresholdLbl">THRESHOLD · 4.5</div>
+    <div class="scoreBigWrap">
+      <span class="scoreNow" id="scoreNow">4.55</span>
+    </div>
+    <div class="stier"><span class="S">S</span>&nbsp;档&nbsp;·&nbsp;CLOSED</div>
+    <div class="threshold">4.55 → 4.95 · 跨档时刻</div>
+  </div>
+
+  <!-- SCENE 8 · 收尾 -->
+  <div class="scene" id="scene8">
+    <div class="endLine1">S-TIER CLOSED LOOP</div>
+    <div class="endLine2">PROTOCOL · TRAINED · SHIPPED</div>
+    <div class="endSig">杨凯杰 · 2026</div>
+    <div class="endDot"></div>
+  </div>
+
+  <!-- Flash overlay -->
+  <div class="flash" id="flash"></div>
+
+  <!-- Start overlay -->
+  <div class="startOverlay" id="startOverlay">
+    <div class="hint">CLICK TO BEGIN · WITH SOUND</div>
+    <div class="title">我训练了一个 AI<br/><span class="br">学会造顶级网站</span></div>
+    <div class="play">▶</div>
+    <div class="sig">8 SCENES · 85 SEC · WEB AUDIO</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls" id="controls">
+    <button id="playBtn">⏸</button>
+    <div class="scrubWrap">
+      <input type="range" id="scrub" min="0" max="85" step=".1" value="0" />
+      <div class="tc" id="tc">00:00 / 01:25</div>
+    </div>
+    <button id="restartBtn">↻</button>
+    <button id="muteBtn">♪</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+ * SHOWCASE #01 · TRAINING PROTOCOL FILM
+ * Timeline-driven 8-scene 85s film with Web Audio synth BGM
+ * ============================================================ */
+
+// ---- SCENE TIMELINE ----
+const SCENES = [
+  { id:'scene1', name:'opening',   at:0,    bg:'radial-gradient(ellipse at 50% 50%,rgba(226,59,34,.08),transparent 30%),radial-gradient(circle at 50% 50%,#0a0606 0,#000 70%)' },
+  { id:'scene2', name:'problem',   at:8,    bg:'radial-gradient(ellipse at 50% 50%,rgba(226,59,34,.10),transparent 35%),#070404' },
+  { id:'scene3', name:'observe',   at:18,   bg:'radial-gradient(ellipse at 50% 50%,rgba(216,170,88,.10),transparent 36%),#0a0807' },
+  { id:'scene4', name:'extract',   at:30,   bg:'radial-gradient(ellipse at 50% 50%,rgba(216,170,88,.16),transparent 36%),radial-gradient(circle at 50% 50%,#16100a 0,#000 72%)' },
+  { id:'scene5', name:'rubric',    at:42,   bg:'radial-gradient(ellipse at 50% 30%,rgba(226,59,34,.07),transparent 36%),#080606' },
+  { id:'scene6', name:'critic',    at:54,   bg:'radial-gradient(ellipse at 50% 50%,rgba(226,59,34,.18),transparent 30%),radial-gradient(circle at 50% 50%,#1a0807 0,#000 70%)' },
+  { id:'scene7', name:'sloop',     at:66,   bg:'radial-gradient(ellipse at 50% 50%,rgba(216,170,88,.20),transparent 40%),radial-gradient(circle at 50% 50%,#16100a 0,#000 70%)' },
+  { id:'scene8', name:'closing',   at:78,   bg:'radial-gradient(ellipse at 50% 50%,rgba(226,59,34,.10),transparent 36%),#040303' }
+];
+const TOTAL = 85;
+
+// ---- DOM ----
+const stage = document.getElementById('stage');
+const bg = document.getElementById('bg');
+const flash = document.getElementById('flash');
+const startOverlay = document.getElementById('startOverlay');
+const controls = document.getElementById('controls');
+const playBtn = document.getElementById('playBtn');
+const restartBtn = document.getElementById('restartBtn');
+const muteBtn = document.getElementById('muteBtn');
+const scrub = document.getElementById('scrub');
+const tc = document.getElementById('tc');
+const timeTxt = document.getElementById('timeTxt');
+const scoreNow = document.getElementById('scoreNow');
+
+const scenes = SCENES.map(s => document.getElementById(s.id));
+
+function fmt(t){
+  const m = Math.floor(t/60), s = Math.floor(t%60);
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+// ---- Build Scene 3 grid (53 cells, 7 highlighted) ----
+(function buildGrid3(){
+  const wrap = document.getElementById('grid3');
+  const cols = 11, rows = 5;
+  // 53 cells: 11*5 = 55, drop last 2
+  const total = 53;
+  const cellW = 7.6, cellH = 4.2, gapX = .35, gapY = .35;
+  // highlight indices
+  const lit = new Set([3,9,14,22,28,33,41,46,49]);
+  for(let i=0; i<total; i++){
+    const r = Math.floor(i/cols), c = i%cols;
+    const el = document.createElement('div');
+    el.className = 'cell' + (lit.has(i) ? ' lit' : '');
+    el.style.left = `calc(var(--u)*${c*(cellW+gapX)})`;
+    el.style.top  = `calc(var(--u)*${r*(cellH+gapY)})`;
+    el.style.setProperty('--cd', (i*0.02)+'s');
+    wrap.appendChild(el);
+  }
+})();
+
+// ---- Build Scene 4 code rain ----
+(function buildRain(){
+  const s4 = document.getElementById('scene4');
+  const glyphs = ['P-001','P-005','P-007','P-013','P-019','P-022','P-028','P-034','P-041','P-049','grain','radial','impact','reveal','rAF','vignette','axis','rubric','critic','S-tier'];
+  const cols = 14;
+  for(let i=0; i<cols; i++){
+    const el = document.createElement('div');
+    el.className = 'rainCol';
+    el.style.left = (3 + i*7) + '%';
+    el.style.setProperty('--rd', (i*0.4 + Math.random()*0.6) + 's');
+    // build text column
+    let txt = '';
+    for(let j=0;j<6;j++) txt += glyphs[Math.floor(Math.random()*glyphs.length)] + '\n';
+    el.textContent = txt;
+    s4.appendChild(el);
+  }
+})();
+
+// ---- WEB AUDIO SYNTH BGM ----
+let audioCtx = null, master = null, musicTimer = null, beat = 0;
+let muted = false;
+let activeImpactNodes = [];
+let padNodes = [];
+
+function ensureCtx(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    master = audioCtx.createGain();
+    master.gain.value = .14;
+    master.connect(audioCtx.destination);
+  }
+}
+function setVol(v){
+  if(master){
+    master.gain.setTargetAtTime(muted ? 0 : v, audioCtx.currentTime, .35);
+  }
+}
+
+// Drum / synth voices
+function kick(t, vol=.55){
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(36, t+.18);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t+.22);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+.26);
+}
+function hat(t, vol=.06){
+  const len = audioCtx.sampleRate*.04;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<len;i++) data[i] = (Math.random()*2-1) * (1-i/len);
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const g = audioCtx.createGain(); g.gain.value = vol;
+  const hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6800;
+  src.connect(hp); hp.connect(g); g.connect(master); src.start(t);
+}
+function snare(t, vol=.12){
+  const len = audioCtx.sampleRate*.14;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for(let i=0;i<len;i++) data[i] = (Math.random()*2-1) * Math.pow(1-i/len, 2);
+  const src = audioCtx.createBufferSource(); src.buffer = buf;
+  const g = audioCtx.createGain(); g.gain.value = vol;
+  const bp = audioCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1800;
+  src.connect(bp); bp.connect(g); g.connect(master); src.start(t);
+}
+function bass(t, n, vol=.13){
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  const notes = [55, 55, 65.4, 49, 73.4, 65.4, 55, 82.4];
+  o.type='sawtooth'; o.frequency.value = notes[n%8];
+  const lp = audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=540;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t+.025);
+  g.gain.exponentialRampToValueAtTime(.001, t+.32);
+  o.connect(lp); lp.connect(g); g.connect(master); o.start(t); o.stop(t+.35);
+}
+function arp(t, n, vol=.05){
+  const notes = [220, 277.18, 329.63, 440, 554.37, 659.25, 554.37, 440, 329.63, 277.18];
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  const delay = audioCtx.createDelay(), dg = audioCtx.createGain();
+  o.type='triangle'; o.frequency.value = notes[n%notes.length];
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t+.012);
+  g.gain.exponentialRampToValueAtTime(.001, t+.2);
+  delay.delayTime.value=.18; dg.gain.value=.14;
+  o.connect(g); g.connect(master); g.connect(delay); delay.connect(dg); dg.connect(master);
+  o.start(t); o.stop(t+.22);
+}
+function pad(t, vol=.035, dur=7.2){
+  [110, 165, 220].forEach((f, idx) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type='sine'; o.frequency.value = f * (idx===2 ? 1.002 : 1);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t+1.4);
+    g.gain.linearRampToValueAtTime(.006, t+dur-.4);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t+dur);
+    padNodes.push(o);
+  });
+}
+function impactSound(intensity='med'){
+  if(!audioCtx) return;
+  const t = audioCtx.currentTime + .02;
+  const lo = audioCtx.createOscillator(), lg = audioCtx.createGain();
+  lo.type='sine'; lo.frequency.setValueAtTime(140, t);
+  lo.frequency.exponentialRampToValueAtTime(42, t+.55);
+  const v = intensity==='hi' ? .42 : intensity==='lo' ? .22 : .32;
+  lg.gain.setValueAtTime(v, t); lg.gain.exponentialRampToValueAtTime(.001, t+.7);
+  lo.connect(lg); lg.connect(master); lo.start(t); lo.stop(t+.75);
+  if(intensity !== 'lo'){
+    const hi = audioCtx.createOscillator(), hg = audioCtx.createGain();
+    hi.type='triangle'; hi.frequency.setValueAtTime(240, t);
+    hi.frequency.exponentialRampToValueAtTime(880, t+.45);
+    hg.gain.setValueAtTime(.001, t); hg.gain.linearRampToValueAtTime(.09, t+.1);
+    hg.gain.exponentialRampToValueAtTime(.001, t+.5);
+    hi.connect(hg); hg.connect(master); hi.start(t); hi.stop(t+.55);
+  }
+}
+
+// Scene mix profile (dark, sparse, dread → reveal → triumph)
+function mixForScene(idx){
+  const base = { master:.16, kick:0, snare:0, bass:0, hat:0, arp:0, pad:.035, kickEvery:4, bassEvery:2, hatEvery:1, arpEvery:1, snareOn:[] };
+  const profiles = [
+    /* 0 opening */    { master:.18, kick:.20, snare:0,   bass:.05, hat:.02, arp:.02, pad:.05,  kickEvery:8, bassEvery:8, hatEvery:4, arpEvery:4, snareOn:[] },
+    /* 1 problem */    { master:.20, kick:.28, snare:0,   bass:.07, hat:.025,arp:.03, pad:.045, kickEvery:4, bassEvery:8, hatEvery:4, arpEvery:4, snareOn:[] },
+    /* 2 observe */    { master:.22, kick:.32, snare:.06, bass:.08, hat:.035,arp:.04, pad:.04,  kickEvery:4, bassEvery:4, hatEvery:2, arpEvery:2, snareOn:[12] },
+    /* 3 extract */    { master:.26, kick:.42, snare:.10, bass:.10, hat:.05, arp:.06, pad:.038, kickEvery:4, bassEvery:2, hatEvery:2, arpEvery:1, snareOn:[12] },
+    /* 4 rubric */     { master:.24, kick:.36, snare:.08, bass:.09, hat:.045,arp:.055,pad:.032, kickEvery:4, bassEvery:2, hatEvery:2, arpEvery:1, snareOn:[12] },
+    /* 5 critic */     { master:.28, kick:.50, snare:.15, bass:.12, hat:.06, arp:.07, pad:.030, kickEvery:4, bassEvery:2, hatEvery:1, arpEvery:1, snareOn:[4,12] },
+    /* 6 sloop */      { master:.30, kick:.58, snare:.16, bass:.15, hat:.08, arp:.09, pad:.04,  kickEvery:4, bassEvery:2, hatEvery:1, arpEvery:1, snareOn:[4,12] },
+    /* 7 closing */    { master:.20, kick:.18, snare:0,   bass:.04, hat:.015,arp:.025,pad:.075, kickEvery:8, bassEvery:8, hatEvery:99,arpEvery:4, snareOn:[] }
+  ];
+  return { ...base, ...(profiles[idx] || profiles[0]) };
+}
+
+function startMusic(){
+  ensureCtx();
+  if(musicTimer) return;
+  const start = audioCtx.currentTime + .05;
+  beat = 0;
+  pad(start, .05, 8);
+  musicTimer = setInterval(() => {
+    if(!audioCtx || !master) return;
+    const mix = mixForScene(currentScene);
+    setVol(mix.master);
+    const t = audioCtx.currentTime + .05;
+    const step = beat % 16;
+    if(mix.kick > 0 && step % mix.kickEvery === 0) kick(t, mix.kick);
+    if(mix.snareOn.includes(step)) snare(t+.01, mix.snare);
+    if(mix.bass > 0 && step % mix.bassEvery === 0) bass(t, Math.floor(beat/2), mix.bass);
+    if(mix.hat > 0 && step % mix.hatEvery === 0) hat(t+.16, mix.hat);
+    if(mix.arp > 0 && step % mix.arpEvery === 0) arp(t+.02, beat, mix.arp);
+    if(beat % 32 === 0) pad(t, mix.pad, 8);
+    beat++;
+  }, 60000/126/2); // 126 bpm, 8th notes
+}
+function stopMusic(){
+  if(musicTimer){ clearInterval(musicTimer); musicTimer = null; }
+  if(audioCtx){
+    try{ audioCtx.close(); }catch(e){}
+    audioCtx = null; master = null;
+  }
+  padNodes = [];
+}
+
+// ---- TIMELINE PLAYBACK ----
+let t0 = 0;
+let elapsed = 0;
+let playing = false;
+let rafId = 0;
+let currentScene = -1;
+
+function setScene(idx){
+  if(idx === currentScene) return;
+  scenes.forEach(s => s.classList.remove('on'));
+  scenes[idx].classList.add('on');
+  bg.style.background = SCENES[idx].bg;
+  currentScene = idx;
+  // flash
+  flash.style.opacity = '0.35';
+  setTimeout(() => { flash.style.opacity = '0'; }, 120);
+  // scene-specific impact sound
+  if(audioCtx){
+    if(idx === 1) impactSound('lo');
+    else if(idx === 2) impactSound('med');
+    else if(idx === 3) impactSound('med');
+    else if(idx === 4) impactSound('med');
+    else if(idx === 5) impactSound('hi');
+    else if(idx === 6) impactSound('hi');
+    else if(idx === 7) impactSound('lo');
+  }
+}
+
+// Animate score 4.55 → 4.95 between t=66+1.0 and t=66+4.0
+function updateScoreScene7(localT){
+  // localT is seconds into scene 7
+  if(localT < 1.0){
+    scoreNow.textContent = '4.55';
+    scoreNow.classList.remove('sLock');
+    return;
+  }
+  if(localT >= 3.6){
+    scoreNow.textContent = '4.95';
+    scoreNow.classList.add('sLock');
+    return;
+  }
+  // interpolate
+  const p = (localT - 1.0) / (3.6 - 1.0);
+  const v = 4.55 + (4.95 - 4.55) * p;
+  scoreNow.textContent = v.toFixed(2);
+  scoreNow.classList.remove('sLock');
+}
+
+function update(){
+  if(!playing) return;
+  const now = performance.now()/1000;
+  elapsed = now - t0;
+  if(elapsed >= TOTAL){
+    elapsed = TOTAL;
+    playing = false;
+    playBtn.textContent = '▶';
+    // stay on last scene
+  }
+  // find current scene
+  let idx = 0;
+  for(let i=SCENES.length-1; i>=0; i--){
+    if(elapsed >= SCENES[i].at){ idx = i; break; }
+  }
+  if(idx !== currentScene) setScene(idx);
+  // scene-specific live updates
+  if(currentScene === 6){
+    updateScoreScene7(elapsed - SCENES[6].at);
+  }
+  scrub.value = elapsed;
+  tc.textContent = fmt(elapsed) + ' / ' + fmt(TOTAL);
+  timeTxt.textContent = fmt(elapsed) + ' / ' + fmt(TOTAL);
+  if(playing) rafId = requestAnimationFrame(update);
+}
+
+function start(){
+  startOverlay.style.opacity = '0';
+  startOverlay.style.pointerEvents = 'none';
+  setTimeout(() => { startOverlay.style.display = 'none'; }, 600);
+  controls.classList.add('show');
+  startMusic();
+  t0 = performance.now()/1000;
+  elapsed = 0;
+  playing = true;
+  playBtn.textContent = '⏸';
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(update);
+}
+
+startOverlay.addEventListener('click', start);
+
+playBtn.addEventListener('click', () => {
+  if(elapsed >= TOTAL){
+    // restart
+    t0 = performance.now()/1000;
+    elapsed = 0;
+    currentScene = -1;
+    scenes.forEach(s => s.classList.remove('on'));
+    playing = true;
+    playBtn.textContent = '⏸';
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(update);
+    if(!audioCtx) startMusic();
+    return;
+  }
+  if(playing){
+    playing = false;
+    playBtn.textContent = '▶';
+    cancelAnimationFrame(rafId);
+    if(audioCtx) setVol(0);
+  } else {
+    playing = true;
+    playBtn.textContent = '⏸';
+    t0 = performance.now()/1000 - elapsed;
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(update);
+    if(audioCtx){
+      const mix = mixForScene(currentScene);
+      setVol(mix.master);
+    }
+  }
+});
+
+restartBtn.addEventListener('click', () => {
+  t0 = performance.now()/1000;
+  elapsed = 0;
+  currentScene = -1;
+  scenes.forEach(s => s.classList.remove('on'));
+  if(!playing){
+    playing = true;
+    playBtn.textContent = '⏸';
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(update);
+  }
+  if(!audioCtx) startMusic();
+});
+
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '🔇' : '♪';
+  if(audioCtx){
+    const mix = mixForScene(currentScene);
+    setVol(mix.master);
+  }
+});
+
+scrub.addEventListener('input', e => {
+  elapsed = parseFloat(e.target.value);
+  t0 = performance.now()/1000 - elapsed;
+  let idx = 0;
+  for(let i=SCENES.length-1; i>=0; i--){
+    if(elapsed >= SCENES[i].at){ idx = i; break; }
+  }
+  currentScene = -1;
+  scenes.forEach(s => s.classList.remove('on'));
+  scenes[idx].classList.add('on');
+  bg.style.background = SCENES[idx].bg;
+  currentScene = idx;
+  tc.textContent = fmt(elapsed) + ' / ' + fmt(TOTAL);
+  timeTxt.textContent = fmt(elapsed) + ' / ' + fmt(TOTAL);
+  if(idx === 6) updateScoreScene7(elapsed - SCENES[6].at);
+});
+
+document.addEventListener('keydown', e => {
+  if(e.key === ' '){ e.preventDefault(); playBtn.click(); }
+  else if(e.key === 'ArrowRight'){
+    elapsed = Math.min(TOTAL, elapsed + 5);
+    t0 = performance.now()/1000 - elapsed;
+  } else if(e.key === 'ArrowLeft'){
+    elapsed = Math.max(0, elapsed - 5);
+    t0 = performance.now()/1000 - elapsed;
+  } else if(e.key === 'm' || e.key === 'M'){
+    muteBtn.click();
+  }
+});
+
+addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    playing = false;
+    playBtn.textContent = '▶';
+    cancelAnimationFrame(rafId);
+    if(audioCtx) setVol(0);
+  }
+});
+
+addEventListener('beforeunload', () => {
+  cancelAnimationFrame(rafId);
+  playing = false;
+  stopMusic();
+});
+
+// Show controls on hover
+stage.addEventListener('mousemove', () => {
+  if(startOverlay.style.display === 'none') controls.classList.add('show');
+});
+</script>
+</body>
+</html>

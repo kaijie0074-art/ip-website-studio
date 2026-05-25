@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TRAINING DASHBOARD / Domain Protocol Round 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ============== Tokens ============== */
+  :root{
+    --bg: #0a0d10;
+    --bg-2: #11151a;
+    --bg-3: #161b22;
+    --panel: #0d1116;
+    --line: #1c232c;
+    --line-strong: #2a333f;
+    --ink-1: #e8edf3;
+    --ink-2: #9aa6b2;
+    --ink-3: #5a6571;
+    --ink-4: #3a434d;
+    --grid: rgba(255,255,255,0.04);
+    --green: #39d353;
+    --blue:  #6ad4ff;
+    --red:   #ff4d3d;
+    --amber: #f6c560;
+    --violet:#a78bfa;
+    --cyan:  #5eead4;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  @property --ring {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink-1);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  body{
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px),
+      radial-gradient(ellipse at 80% -10%, rgba(106,212,255,0.06), transparent 50%),
+      radial-gradient(ellipse at 0% 110%, rgba(57,211,83,0.05), transparent 50%);
+    background-size: 48px 48px, 48px 48px, 100% 100%, 100% 100%;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* grain overlay */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1000;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+    opacity:0.04;mix-blend-mode:overlay;
+  }
+
+  /* ============== Top Bar ============== */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    background: rgba(10,13,16,0.85);
+    backdrop-filter: blur(8px);
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;color:var(--ink-2);
+    padding: 10px 24px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    letter-spacing:.06em;
+  }
+  .topbar .brand{color:var(--ink-1);font-weight:700;letter-spacing:.15em;}
+  .topbar .brand::before{content:"●";color:var(--green);margin-right:8px;animation: pulse 1.6s ease-in-out infinite;}
+  .topbar .meta{color:var(--ink-3);}
+  .topbar .right{margin-left:auto;display:flex;gap:18px;}
+  .topbar .right span b{color:var(--ink-1);font-weight:500;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ============== Layout ============== */
+  main{max-width:1440px;margin:0 auto;padding:32px 24px 80px;}
+
+  /* ============== Header / Hero ============== */
+  .hero{
+    padding:48px 0 36px;
+    display:grid;grid-template-columns: 1.4fr 1fr;gap:48px;align-items:end;
+    border-bottom:1px solid var(--line);
+  }
+  .hero .label{
+    font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.2em;margin-bottom:14px;
+  }
+  .hero h1{
+    font-size: clamp(36px, 5.4vw, 72px);
+    line-height:1.02;letter-spacing:-0.025em;font-weight:900;
+  }
+  .hero h1 i{font-style:italic;font-weight:400;color:var(--ink-2);}
+  .hero h1 em{font-style:normal;background:linear-gradient(120deg,var(--green),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero .desc{
+    font-family:var(--mono);font-size:13px;color:var(--ink-2);line-height:1.7;
+    max-width:380px;margin-left:auto;
+  }
+  .hero .desc b{color:var(--ink-1);font-weight:500;}
+  .hero .desc::before{content:"// ";color:var(--green);}
+
+  /* ============== KPI Grid ============== */
+  .kpi{
+    display:grid;grid-template-columns: repeat(4, 1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);
+    margin-top:36px;
+  }
+  .kpi .cell{
+    background:var(--panel);padding:28px 24px 24px;position:relative;overflow:hidden;
+  }
+  .kpi .cell::before{
+    content:"";position:absolute;top:0;left:0;width:24px;height:1px;background:var(--green);
+  }
+  .kpi .cell:nth-child(2)::before{background:var(--blue);}
+  .kpi .cell:nth-child(3)::before{background:var(--amber);}
+  .kpi .cell:nth-child(4)::before{background:var(--red);}
+  .kpi .label{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--ink-3);margin-bottom:14px;}
+  .kpi .val{font-size:clamp(40px,5.4vw,72px);font-weight:700;letter-spacing:-0.04em;line-height:1;font-feature-settings:"tnum";}
+  .kpi .unit{font-family:var(--mono);font-size:13px;color:var(--ink-3);margin-left:8px;font-weight:400;}
+  .kpi .sub{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:10px;line-height:1.5;}
+  .kpi .sub .tag{display:inline-block;border:1px solid var(--line-strong);padding:1px 6px;border-radius:2px;color:var(--green);margin-left:4px;font-size:10px;}
+  .kpi .cell.peak .val{color:var(--green);}
+  .kpi .cell.grade .val{
+    background:linear-gradient(180deg,var(--green) 0%, var(--blue) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+
+  /* ============== Section ============== */
+  section{margin-top:64px;}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:24px;border-bottom:1px dashed var(--line-strong);padding-bottom:12px;}
+  .sec-head .idx{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.2em;}
+  .sec-head h2{font-size:22px;font-weight:700;letter-spacing:-0.01em;}
+  .sec-head .badge{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-2);background:var(--bg-3);border:1px solid var(--line-strong);padding:3px 8px;border-radius:2px;}
+
+  /* ============== Two-col panels ============== */
+  .two-col{display:grid;grid-template-columns: 1fr 1fr;gap:24px;}
+  .panel{
+    background:var(--panel);border:1px solid var(--line);
+    padding:28px;position:relative;
+  }
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:6px;letter-spacing:.01em;}
+  .panel .pdesc{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-bottom:24px;line-height:1.6;}
+  .panel .corner{position:absolute;top:8px;right:12px;font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:.15em;}
+
+  /* ============== Conic donut: P distribution ============== */
+  .donut-wrap{display:grid;grid-template-columns: 200px 1fr;gap:28px;align-items:center;}
+  .donut{
+    width:200px;height:200px;border-radius:50%;
+    position:relative;
+    background:
+      conic-gradient(
+        var(--green)            0           calc(360deg * 11/49),
+        var(--blue)             calc(360deg * 11/49)  calc(360deg * 17/49),
+        var(--amber)            calc(360deg * 17/49)  calc(360deg * 24/49),
+        var(--cyan)             calc(360deg * 24/49)  calc(360deg * 27/49),
+        var(--red)              calc(360deg * 27/49)  calc(360deg * 35/49),
+        var(--violet)           calc(360deg * 35/49)  calc(360deg * 39/49),
+        #ec6cb9                 calc(360deg * 39/49)  calc(360deg * 44/49),
+        #ffb86c                 calc(360deg * 44/49)  360deg
+      );
+    --ring: 0deg;
+    mask: radial-gradient(circle, transparent 56px, #000 57px);
+    -webkit-mask: radial-gradient(circle, transparent 56px, #000 57px);
+    animation: donut-in 1.4s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes donut-in{from{transform:rotate(-90deg) scale(.85);opacity:0}to{transform:rotate(0) scale(1);opacity:1}}
+  .donut-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    pointer-events:none;
+  }
+  .donut-center .n{font-size:44px;font-weight:700;letter-spacing:-0.04em;font-feature-settings:"tnum";}
+  .donut-center .l{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.15em;margin-top:2px;}
+  .legend{display:flex;flex-direction:column;gap:8px;font-family:var(--mono);font-size:12px;}
+  .legend .row{display:grid;grid-template-columns: 14px 1fr auto auto;gap:10px;align-items:center;padding:3px 0;border-bottom:1px dashed var(--line);}
+  .legend .row:last-child{border-bottom:none;}
+  .legend .sw{width:10px;height:10px;border-radius:1px;}
+  .legend .name{color:var(--ink-1);font-family:var(--sans);font-size:12.5px;letter-spacing:-0.005em;}
+  .legend .code{color:var(--ink-3);font-size:10.5px;letter-spacing:.04em;}
+  .legend .n{color:var(--ink-1);font-weight:700;font-feature-settings:"tnum";}
+
+  /* ============== Stacked bar: R types ============== */
+  .stack{display:flex;height:54px;width:100%;border:1px solid var(--line-strong);border-radius:2px;overflow:hidden;background:var(--bg-3);position:relative;}
+  .stack .seg{display:flex;align-items:center;justify-content:flex-start;padding:0 14px;font-family:var(--mono);font-size:12px;color:#0a0d10;font-weight:700;letter-spacing:.04em;position:relative;transition:flex-basis .6s ease;}
+  .stack .seg.a{background:var(--green);flex: 16 1 0;}
+  .stack .seg.b{background:var(--amber);flex: 7 1 0;color:#0a0d10;}
+  .stack .seg.c{background:var(--red);flex: 5 1 0;color:#fff;}
+  .stack .seg::after{content:attr(data-tag);position:absolute;bottom:-22px;left:0;color:var(--ink-2);font-family:var(--mono);font-size:10px;letter-spacing:.1em;font-weight:400;}
+  .stack-wrap{margin-bottom:32px;}
+  .stack-meta{display:grid;grid-template-columns: repeat(3,1fr);gap:12px;margin-top:30px;font-family:var(--mono);font-size:11px;}
+  .stack-meta .m{border:1px solid var(--line);padding:14px;background:var(--bg-3);}
+  .stack-meta .m .tt{color:var(--ink-3);letter-spacing:.15em;font-size:10px;margin-bottom:6px;}
+  .stack-meta .m .v{color:var(--ink-1);font-size:13px;line-height:1.5;}
+  .stack-meta .m .ex{color:var(--ink-2);margin-top:6px;font-size:10.5px;line-height:1.5;}
+
+  /* ============== Inflation chart (SVG) ============== */
+  .infl-grid{display:grid;grid-template-columns: 2fr 1fr;gap:24px;}
+  .chart-box{background:var(--bg-3);border:1px solid var(--line);padding:24px;position:relative;}
+  .chart-box svg{width:100%;height:auto;display:block;}
+  .chart-callout{
+    position:absolute;font-family:var(--mono);font-size:10.5px;color:var(--ink-2);
+    background:rgba(10,13,16,.92);border:1px solid var(--line-strong);padding:6px 10px;
+    line-height:1.5;max-width:200px;
+  }
+  .chart-callout b{color:var(--green);font-weight:600;}
+  .infl-side .legend-line{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;margin-bottom:14px;}
+  .infl-side .legend-line .ln{width:22px;height:2px;}
+  .infl-side .lnA{background:var(--red);}
+  .infl-side .lnB{background:var(--green);}
+  .infl-side .lnB.dashed{background:repeating-linear-gradient(90deg,var(--green) 0 4px,transparent 4px 8px);height:2px;}
+
+  .data-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:18px;}
+  .data-table th{color:var(--ink-3);text-align:left;font-weight:400;letter-spacing:.1em;font-size:10px;padding:6px 8px;border-bottom:1px solid var(--line-strong);}
+  .data-table td{padding:8px;border-bottom:1px dashed var(--line);color:var(--ink-1);}
+  .data-table td.muted{color:var(--ink-2);}
+  .data-table td.pos{color:var(--red);}
+  .data-table td.neg{color:var(--green);}
+  .data-table tr.holdout td{background: rgba(57,211,83,0.06);}
+
+  /* ============== S iteration trajectory ============== */
+  .traj-wrap{display:grid;grid-template-columns: 1.3fr 1fr;gap:24px;}
+  .traj-chart{background:var(--bg-3);border:1px solid var(--line);padding:24px;}
+  .traj-chart svg{width:100%;height:auto;display:block;}
+  .fixes{display:flex;flex-direction:column;gap:10px;}
+  .fix{
+    border:1px solid var(--line);background:var(--bg-3);padding:14px 16px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-1);
+    display:grid;grid-template-columns: 80px 1fr auto;gap:14px;align-items:center;
+    transition: border-color .3s;
+  }
+  .fix:hover{border-color:var(--green);}
+  .fix .id{color:var(--green);font-weight:700;letter-spacing:.05em;}
+  .fix .what{color:var(--ink-2);font-size:11px;line-height:1.4;}
+  .fix .delta{color:var(--ink-1);font-feature-settings:"tnum";font-weight:700;}
+  .fix .delta::before{content:"+";color:var(--green);}
+
+  /* ============== Workflow loop ============== */
+  .loop-wrap{padding:24px 8px 12px;}
+  .loop{display:grid;grid-template-columns: repeat(5, 1fr);gap:0;align-items:stretch;}
+  .step{
+    background:var(--bg-3);border:1px solid var(--line);padding:18px 14px;position:relative;
+    font-family:var(--mono);font-size:11px;color:var(--ink-2);
+    min-height:130px;display:flex;flex-direction:column;gap:8px;
+  }
+  .step:not(:last-child)::after{
+    content:"→";position:absolute;right:-12px;top:50%;transform:translateY(-50%);
+    background:var(--bg);color:var(--green);font-size:18px;width:24px;height:24px;
+    display:flex;align-items:center;justify-content:center;z-index:2;
+    font-family:var(--mono);
+  }
+  .step .num{
+    font-size:10px;color:var(--green);letter-spacing:.2em;
+  }
+  .step .ttl{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink-1);letter-spacing:-0.005em;}
+  .step .desc{color:var(--ink-3);line-height:1.5;font-size:10.5px;}
+  .step.crit{border-color:var(--green);box-shadow: inset 0 0 0 1px rgba(57,211,83,0.15);}
+  .step.crit .num{color:var(--green);}
+  .step.crit .ttl::after{content:" ★";color:var(--green);}
+
+  /* ============== Reflection ============== */
+  .reflect{display:grid;grid-template-columns: repeat(3, 1fr);gap:16px;}
+  .reflect .card{
+    background:var(--panel);border:1px solid var(--line);padding:24px;
+    position:relative;
+  }
+  .reflect .card::before{
+    content:"";position:absolute;top:0;left:0;width:32px;height:2px;background:var(--amber);
+  }
+  .reflect .card .id{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--amber);margin-bottom:12px;display:block;}
+  .reflect .card h4{font-size:13.5px;font-weight:600;letter-spacing:-0.005em;margin-bottom:10px;line-height:1.4;}
+  .reflect .card p{font-family:var(--mono);font-size:11px;color:var(--ink-2);line-height:1.65;}
+  .reflect .card .pri{
+    display:inline-block;margin-top:14px;font-family:var(--mono);font-size:10px;
+    color:var(--ink-3);border:1px solid var(--line-strong);padding:2px 7px;border-radius:2px;
+  }
+  .reflect .card .pri.must{color:var(--red);border-color:rgba(255,77,61,0.4);}
+  .reflect .card .pri.rec{color:var(--amber);border-color:rgba(246,197,96,0.4);}
+
+  /* ============== Footer ============== */
+  footer{
+    margin-top:80px;padding-top:28px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.06em;
+    display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  }
+  footer .blink::after{content:"_";animation:blink 1s steps(1) infinite;color:var(--green);}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ============== count-up entry ============== */
+  .countup{font-variant-numeric: tabular-nums;}
+
+  /* ============== Responsive ============== */
+  @media (max-width: 900px){
+    .hero{grid-template-columns:1fr;gap:24px;}
+    .hero .desc{margin-left:0;}
+    .kpi{grid-template-columns:1fr 1fr;}
+    .two-col, .infl-grid, .traj-wrap{grid-template-columns:1fr;}
+    .donut-wrap{grid-template-columns:1fr;}
+    .donut{margin:0 auto;}
+    .loop{grid-template-columns:1fr;gap:8px;}
+    .step:not(:last-child)::after{content:"↓";right:auto;left:50%;top:auto;bottom:-18px;transform:translateX(-50%);}
+    .step{min-height:auto;}
+    .reflect{grid-template-columns:1fr;}
+    .stack-meta{grid-template-columns:1fr;}
+    .topbar{font-size:10px;padding:8px 14px;gap:10px;}
+    main{padding:20px 14px 60px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== Top bar ============== -->
+<div class="topbar" role="banner">
+  <span class="brand">DOMAIN-TRAINING / R01</span>
+  <span class="meta">PROTOCOL_v0.1 · WEBSITE-CRAFT</span>
+  <span class="meta">CYCLE 01 / 03</span>
+  <div class="right">
+    <span>STATUS <b>STABLE</b></span>
+    <span>INFLATION <b>+0.20σ</b></span>
+    <span>RUN_ID <b>r01-0524</b></span>
+  </div>
+</div>
+
+<main>
+
+<!-- ============== HERO ============== -->
+<section class="hero">
+  <div>
+    <div class="label">// READOUT — ROUND 01 / VOLUMETRIC SUMMARY</div>
+    <h1>
+      49 rules · 28 rubrics<br>
+      <i>distilled from</i> <em>53 craft samples.</em>
+    </h1>
+  </div>
+  <div class="desc">
+    Domain post-training in absence of weight access. All training output forced into <b>file-state artifacts</b> — principles, rubric, exemplars — verifiable across sessions. Critic agent runs independently of generator. Inflation tracked across hold-out test set.
+  </div>
+</section>
+
+<!-- ============== KPI ============== -->
+<div class="kpi" aria-label="Key metrics">
+  <div class="cell">
+    <div class="label">PRINCIPLES</div>
+    <div class="val countup" data-target="49">0</div>
+    <div class="sub">8 categories · aesthetic → critic-fed → signal</div>
+  </div>
+  <div class="cell">
+    <div class="label">RUBRICS</div>
+    <div class="val countup" data-target="28">0</div>
+    <div class="sub">16 objective · 7 semi · 5 taste</div>
+  </div>
+  <div class="cell peak">
+    <div class="label">PEAK SCORE</div>
+    <div class="val countup" data-target="4.95" data-decimals="2">0</div>
+    <span class="unit">/ 5.00</span>
+    <div class="sub">post-iteration · 5 fixes applied <span class="tag">+0.40</span></div>
+  </div>
+  <div class="cell grade">
+    <div class="label">GRADE TIER</div>
+    <div class="val">S</div>
+    <div class="sub">closed loop · holdout verified · <b style="color:var(--green)">PASS</b></div>
+  </div>
+</div>
+
+<!-- ============== Section 1: Principle distribution ============== -->
+<section>
+  <div class="sec-head">
+    <span class="idx">§01</span>
+    <h2>Principle distribution</h2>
+    <span class="badge">49 RULES · 8 CATEGORIES</span>
+  </div>
+  <div class="two-col">
+    <div class="panel">
+      <span class="corner">FIG.01</span>
+      <h3>By category</h3>
+      <p class="pdesc">Each principle is one falsifiable rule. Categories grew organically as bad-case patterns repeated — anti-pattern bucket appeared only after iteration 02.</p>
+      <div class="donut-wrap">
+        <div style="position:relative;width:200px;height:200px;">
+          <div class="donut" aria-hidden="true"></div>
+          <div class="donut-center">
+            <div class="n countup" data-target="49">0</div>
+            <div class="l">PRINCIPLES</div>
+          </div>
+        </div>
+        <div class="legend" aria-label="category legend">
+          <div class="row"><span class="sw" style="background:var(--green)"></span><span class="name">Aesthetic</span><span class="code">P-001~011</span><span class="n">11</span></div>
+          <div class="row"><span class="sw" style="background:var(--blue)"></span><span class="name">Structure</span><span class="code">P-012~017</span><span class="n">6</span></div>
+          <div class="row"><span class="sw" style="background:var(--amber)"></span><span class="name">Motion</span><span class="code">P-018~024</span><span class="n">7</span></div>
+          <div class="row"><span class="sw" style="background:var(--cyan)"></span><span class="name">Media</span><span class="code">P-025~027</span><span class="n">3</span></div>
+          <div class="row"><span class="sw" style="background:var(--red)"></span><span class="name">Anti-pattern</span><span class="code">P-028~035</span><span class="n">8</span></div>
+          <div class="row"><span class="sw" style="background:var(--violet)"></span><span class="name">Critic-fed</span><span class="code">P-036~039</span><span class="n">4</span></div>
+          <div class="row"><span class="sw" style="background:#ec6cb9"></span><span class="name">Interaction FSM</span><span class="code">P-040~044</span><span class="n">5</span></div>
+          <div class="row"><span class="sw" style="background:#ffb86c"></span><span class="name">Signal grading</span><span class="code">P-045~049</span><span class="n">5</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="corner">FIG.02</span>
+      <h3>Rubric composition</h3>
+      <p class="pdesc">28 rubrics weight-distributed across 3 axes. Taste axis carries 2× weight despite fewer items — taste is where reward-hacking shows up.</p>
+      <div class="stack-wrap">
+        <div class="stack" role="img" aria-label="rubric stacked composition">
+          <div class="seg a" data-tag="OBJECTIVE · 16">A 16</div>
+          <div class="seg b" data-tag="SEMI · 7">B 7</div>
+          <div class="seg c" data-tag="TASTE · 5">C 5</div>
+        </div>
+        <div class="stack-meta">
+          <div class="m">
+            <div class="tt">A · OBJECTIVE</div>
+            <div class="v">grep / DOM / script-checkable</div>
+            <div class="ex">e.g. viewport meta · cancelAnimationFrame · 44px hit-target</div>
+          </div>
+          <div class="m">
+            <div class="tt">B · SEMI</div>
+            <div class="v">threshold + anchor</div>
+            <div class="ex">e.g. first-fold density ≤ 5 units · cue mapping precision</div>
+          </div>
+          <div class="m">
+            <div class="tt">C · TASTE</div>
+            <div class="v">subjective · anchored to corpus</div>
+            <div class="ex">e.g. 3-sec gestalt · font-tension · emotional trigger</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 2: Inflation curve ============== -->
+<section>
+  <div class="sec-head">
+    <span class="idx">§02</span>
+    <h2>Generator-critic inflation</h2>
+    <span class="badge">HOLDOUT TEST · CRITIC INDEPENDENT</span>
+  </div>
+  <div class="panel">
+    <span class="corner">FIG.03</span>
+    <h3>Self-eval vs blind-critic delta (10pt)</h3>
+    <p class="pdesc">In-distribution: generator inflated +0.8 → +1.5 across rounds. Holdout pass-2 added independent critic in the loop — inflation collapsed to −0.20. <b style="color:var(--green)">Inflection point = training maturity signal.</b></p>
+
+    <div class="infl-grid">
+      <div class="chart-box">
+        <svg viewBox="0 0 640 320" preserveAspectRatio="xMidYMid meet" role="img" aria-label="inflation curve">
+          <!-- grid -->
+          <defs>
+            <pattern id="ginfl" width="64" height="32" patternUnits="userSpaceOnUse">
+              <path d="M 64 0 L 0 0 0 32" fill="none" stroke="#1c232c" stroke-width="0.5"/>
+            </pattern>
+            <linearGradient id="redfade" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#ff4d3d" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="#ff4d3d" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="640" height="320" fill="url(#ginfl)"/>
+
+          <!-- axes -->
+          <line x1="60" y1="20" x2="60" y2="280" stroke="#3a434d" stroke-width="1"/>
+          <line x1="60" y1="280" x2="620" y2="280" stroke="#3a434d" stroke-width="1"/>
+
+          <!-- y labels (delta) -->
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#5a6571">
+            <text x="55" y="40" text-anchor="end">+2.0</text>
+            <text x="55" y="100" text-anchor="end">+1.0</text>
+            <text x="55" y="160" text-anchor="end">0.0</text>
+            <text x="55" y="220" text-anchor="end">−1.0</text>
+            <text x="55" y="280" text-anchor="end">−2.0</text>
+            <text x="44" y="14" font-size="9" fill="#9aa6b2">Δ (10pt)</text>
+          </g>
+
+          <!-- zero baseline -->
+          <line x1="60" y1="160" x2="620" y2="160" stroke="#39d353" stroke-width="0.8" stroke-dasharray="4 4" opacity="0.6"/>
+          <text x="610" y="155" font-family="JetBrains Mono, monospace" font-size="9" fill="#39d353" text-anchor="end">truth line · critic = generator</text>
+
+          <!-- x labels -->
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#5a6571" text-anchor="middle">
+            <text x="140" y="300">test_01</text>
+            <text x="260" y="300">test_02</text>
+            <text x="380" y="300">test_03</text>
+            <text x="540" y="300">holdout</text>
+          </g>
+
+          <!-- ID region shaded -->
+          <rect x="60" y="20" width="380" height="260" fill="#11151a" opacity="0.3"/>
+          <text x="250" y="34" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#9aa6b2" text-anchor="middle" letter-spacing="2">IN-DISTRIBUTION (3 RUNS)</text>
+
+          <!-- HOLDOUT region -->
+          <rect x="440" y="20" width="180" height="260" fill="#0d1116" opacity="0.5" stroke="#39d353" stroke-width="0.5" stroke-dasharray="4 4"/>
+          <text x="530" y="34" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#39d353" text-anchor="middle" letter-spacing="2">HOLDOUT</text>
+
+          <!-- inflation area (in-distribution) -->
+          <path d="M140,112 L260,70 L380,82 L380,160 L260,160 L140,160 Z" fill="url(#redfade)"/>
+
+          <!-- generator self-eval line -->
+          <polyline points="140,112 260,70 380,82 540,172" fill="none" stroke="#ff4d3d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+            stroke-dasharray="600" stroke-dashoffset="600">
+            <animate attributeName="stroke-dashoffset" from="600" to="0" dur="1.4s" begin="0.4s" fill="freeze"/>
+          </polyline>
+
+          <!-- truth (critic) line — at 0 -->
+          <polyline points="140,160 260,160 380,160 540,160" fill="none" stroke="#39d353" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="6 4" opacity="0.65"/>
+
+          <!-- data points -->
+          <g>
+            <circle cx="140" cy="112" r="5" fill="#ff4d3d" stroke="#0a0d10" stroke-width="2"/>
+            <text x="140" y="103" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">+0.8</text>
+
+            <circle cx="260" cy="70" r="5" fill="#ff4d3d" stroke="#0a0d10" stroke-width="2"/>
+            <text x="260" y="61" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">+1.5</text>
+
+            <circle cx="380" cy="82" r="5" fill="#ff4d3d" stroke="#0a0d10" stroke-width="2"/>
+            <text x="380" y="73" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">+1.3</text>
+
+            <!-- holdout point -->
+            <circle cx="540" cy="172" r="6" fill="#39d353" stroke="#0a0d10" stroke-width="2"/>
+            <text x="540" y="192" font-family="JetBrains Mono, monospace" font-size="11" fill="#39d353" text-anchor="middle" font-weight="700">−0.20</text>
+          </g>
+
+          <!-- inflection annotation -->
+          <g>
+            <line x1="440" y1="50" x2="440" y2="270" stroke="#39d353" stroke-width="1" stroke-dasharray="2 3" opacity="0.6"/>
+            <text x="436" y="252" font-family="JetBrains Mono, monospace" font-size="10" fill="#39d353" text-anchor="end">← critic injected</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="infl-side">
+        <div class="legend-line"><span class="ln lnA"></span> Generator self-eval (Δ vs truth)</div>
+        <div class="legend-line"><span class="ln lnB dashed"></span> Independent critic baseline</div>
+
+        <table class="data-table" aria-label="inflation data">
+          <thead>
+            <tr><th>RUN</th><th>GEN</th><th>CRITIC</th><th>Δ</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>test_01</td><td class="muted">8.0</td><td>7.20</td><td class="pos">+0.80</td></tr>
+            <tr><td>test_02</td><td class="muted">9.2</td><td>7.70</td><td class="pos">+1.50</td></tr>
+            <tr><td>test_03</td><td class="muted">8.5</td><td>7.20</td><td class="pos">+1.30</td></tr>
+            <tr class="holdout"><td>holdout</td><td class="muted">9.10</td><td>9.30</td><td class="neg">−0.20</td></tr>
+          </tbody>
+          <tfoot>
+            <tr style="border-top:1px solid var(--line-strong)"><td colspan="3" style="padding-top:10px;color:var(--ink-3);font-size:10px;letter-spacing:.1em">MEAN INFLATION ID</td><td style="padding-top:10px;color:var(--red);font-weight:700">+1.20</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 3: S-grade iteration trajectory ============== -->
+<section>
+  <div class="sec-head">
+    <span class="idx">§03</span>
+    <h2>S-tier closed-loop iteration</h2>
+    <span class="badge">v01 → v02 · +0.40 SCORE GAIN</span>
+  </div>
+  <div class="panel">
+    <span class="corner">FIG.04</span>
+    <h3>Re-scoring after critic-applied fixes</h3>
+    <p class="pdesc">First pass scored 4.55/5 (high A-tier). Critic surfaced 5 specific rubric gaps. Generator applied targeted patches without rewrite. Re-score: 4.95 — entered S band on closed loop.</p>
+
+    <div class="traj-wrap">
+      <div class="traj-chart">
+        <svg viewBox="0 0 640 280" preserveAspectRatio="xMidYMid meet" role="img" aria-label="iteration trajectory">
+          <defs>
+            <pattern id="gtraj" width="64" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 64 0 L 0 0 0 40" fill="none" stroke="#1c232c" stroke-width="0.5"/>
+            </pattern>
+            <linearGradient id="upgrad" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0%" stop-color="#6ad4ff"/>
+              <stop offset="100%" stop-color="#39d353"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="640" height="280" fill="url(#gtraj)"/>
+
+          <!-- y-axis -->
+          <line x1="60" y1="20" x2="60" y2="240" stroke="#3a434d" stroke-width="1"/>
+          <line x1="60" y1="240" x2="600" y2="240" stroke="#3a434d" stroke-width="1"/>
+
+          <!-- threshold lines -->
+          <line x1="60" y1="60" x2="600" y2="60" stroke="#39d353" stroke-width="0.6" stroke-dasharray="3 4" opacity="0.4"/>
+          <text x="595" y="55" font-family="JetBrains Mono, monospace" font-size="9" fill="#39d353" text-anchor="end">S tier ≥ 4.5</text>
+          <line x1="60" y1="120" x2="600" y2="120" stroke="#f6c560" stroke-width="0.6" stroke-dasharray="3 4" opacity="0.4"/>
+          <text x="595" y="115" font-family="JetBrains Mono, monospace" font-size="9" fill="#f6c560" text-anchor="end">A tier ≥ 3.5</text>
+
+          <!-- y labels -->
+          <g font-family="JetBrains Mono, monospace" font-size="10" fill="#5a6571">
+            <text x="55" y="24" text-anchor="end">5.00</text>
+            <text x="55" y="60" text-anchor="end">4.50</text>
+            <text x="55" y="120" text-anchor="end">3.50</text>
+            <text x="55" y="180" text-anchor="end">2.50</text>
+            <text x="55" y="244" text-anchor="end">0.00</text>
+          </g>
+
+          <!-- v1 column -->
+          <rect x="170" y="56" width="60" height="184" fill="#1c232c" rx="2"/>
+          <rect x="170" y="56" width="60" height="184" fill="url(#upgrad)" opacity="0.18"/>
+          <text x="200" y="260" font-family="JetBrains Mono, monospace" font-size="11" fill="#9aa6b2" text-anchor="middle">v01</text>
+          <line x1="170" y1="56" x2="230" y2="56" stroke="#f6c560" stroke-width="3"/>
+          <text x="200" y="46" font-family="Inter, sans-serif" font-size="20" font-weight="700" fill="#f6c560" text-anchor="middle">4.55</text>
+          <text x="200" y="200" font-family="JetBrains Mono, monospace" font-size="9" fill="#5a6571" text-anchor="middle">A-tier</text>
+
+          <!-- v2 column -->
+          <rect x="380" y="20" width="60" height="220" fill="#1c232c" rx="2"/>
+          <rect x="380" y="20" width="60" height="220" fill="url(#upgrad)" opacity="0.35"/>
+          <text x="410" y="260" font-family="JetBrains Mono, monospace" font-size="11" fill="#9aa6b2" text-anchor="middle">v02</text>
+          <line x1="380" y1="20" x2="440" y2="20" stroke="#39d353" stroke-width="3"/>
+          <text x="410" y="10" font-family="Inter, sans-serif" font-size="20" font-weight="700" fill="#39d353" text-anchor="middle">4.95</text>
+          <text x="410" y="200" font-family="JetBrains Mono, monospace" font-size="9" fill="#5a6571" text-anchor="middle">S-tier ★</text>
+
+          <!-- arrow -->
+          <path d="M 235 56 Q 300 36 375 22" fill="none" stroke="#39d353" stroke-width="1.6" stroke-dasharray="4 3"/>
+          <polygon points="375,22 367,18 367,28" fill="#39d353"/>
+          <text x="305" y="20" font-family="JetBrains Mono, monospace" font-size="11" fill="#39d353" text-anchor="middle" font-weight="700">+0.40</text>
+
+          <!-- fix tick marks under v01 → v02 arrow -->
+          <g font-family="JetBrains Mono, monospace" font-size="9" fill="#9aa6b2">
+            <text x="305" y="38" text-anchor="middle">(5 fixes applied)</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="fixes" aria-label="applied fixes">
+        <div class="fix"><span class="id">R-028</span><span class="what">emotional-trigger hard path explicitly checked</span><span class="delta">0.10</span></div>
+        <div class="fix"><span class="id">R-021</span><span class="what">audio cue mapping → phrase-locked from linear</span><span class="delta">0.10</span></div>
+        <div class="fix"><span class="id">R-023</span><span class="what">font hierarchy collapsed 6 → 4 levels</span><span class="delta">0.08</span></div>
+        <div class="fix"><span class="id">R-016</span><span class="what">scene-detail hooks restored (≥80% survival)</span><span class="delta">0.08</span></div>
+        <div class="fix"><span class="id">R-010</span><span class="what">tap targets raised to 44px on mobile</span><span class="delta">0.04</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 4: Workflow loop ============== -->
+<section>
+  <div class="sec-head">
+    <span class="idx">§04</span>
+    <h2>Training protocol — 5-step loop</h2>
+    <span class="badge">CRITIC IS INDEPENDENT · NOT GENERATOR</span>
+  </div>
+  <div class="panel loop-wrap">
+    <div class="loop">
+      <div class="step">
+        <span class="num">01</span>
+        <span class="ttl">CORPUS</span>
+        <span class="desc">53 craft samples + 43 rebuild notes + 6 good/bad pairs collected as raw material.</span>
+      </div>
+      <div class="step">
+        <span class="num">02</span>
+        <span class="ttl">DISTILL</span>
+        <span class="desc">Generator extracts falsifiable rules. Output → principles.md, rubric.md, exemplars/.</span>
+      </div>
+      <div class="step crit">
+        <span class="num">03</span>
+        <span class="ttl">CRITIC</span>
+        <span class="desc">Independent agent re-scores blind. Reads rubric, never reads generator self-eval.</span>
+      </div>
+      <div class="step">
+        <span class="num">04</span>
+        <span class="ttl">PATCH</span>
+        <span class="desc">Gaps surfaced by critic feed back as new principles (P-036~049 originated here).</span>
+      </div>
+      <div class="step crit">
+        <span class="num">05</span>
+        <span class="ttl">HOLDOUT</span>
+        <span class="desc">Re-test on unseen brief. Inflation collapses → training matures.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 5: Protocol reflection ============== -->
+<section>
+  <div class="sec-head">
+    <span class="idx">§05</span>
+    <h2>Protocol self-reflection</h2>
+    <span class="badge">META-LAYER · 3 ACTIONABLE GAPS</span>
+  </div>
+  <div class="reflect">
+    <div class="card">
+      <span class="id">F-001</span>
+      <h4>Generator self-eval inflates by +1.2 / 10 on average.</h4>
+      <p>Across 3 independent runs, generator scored itself ≥ 8.0 / 10; blind critic re-evaluation returned 7.20 ~ 7.70. Inflation is structural, not noise — reward-hacking surfaces when scorer = scored.</p>
+      <span class="pri must">PRIORITY · MUST FIX</span>
+    </div>
+    <div class="card">
+      <span class="id">F-002</span>
+      <h4>Critic reports surface newer gaps than good/bad exemplars.</h4>
+      <p>4 of 15 new principles (P-036~039) originated from critic reports rather than prior exemplars. Critic loop should feed back into principles.md as primary update source, not secondary.</p>
+      <span class="pri rec">PRIORITY · RECOMMENDED</span>
+    </div>
+    <div class="card">
+      <span class="id">F-003</span>
+      <h4>Single-rubric weight of 0.10 can't express severity of red-line violations.</h4>
+      <p>A rule like "rAF must release on visibility-hidden" weighs only 2% of total. Generator can violate critical principles and still grade out high. Tag red-line rubrics with override-weights or trigger-tier demotion.</p>
+      <span class="pri rec">PRIORITY · RECOMMENDED</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>
+    <div>DOMAIN-TRAINING_PROTOCOL · ROUND_01 · 2026.05</div>
+    <div style="margin-top:6px;color:var(--ink-4)">data grounded in: principles.md (49) · rubric.md (28) · critic-reports/test_{01,02,03} · holdout pass · protocol-feedback.md F-001~003</div>
+  </div>
+  <div style="text-align:right">
+    <div>ARTIFACTS: principles.md · rubric.md · exemplars/* · critic-reports/*</div>
+    <div class="blink" style="margin-top:6px;color:var(--ink-2)">CYCLE CLOSED</div>
+  </div>
+</footer>
+
+</main>
+
+<script>
+  // ============== count-up ==============
+  (function(){
+    const els = document.querySelectorAll('.countup');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el = e.target;
+        if (el.dataset.done) return;
+        el.dataset.done = '1';
+        const target = parseFloat(el.dataset.target);
+        const decimals = parseInt(el.dataset.decimals || '0', 10);
+        const dur = 1300;
+        const start = performance.now();
+        function tick(now){
+          const t = Math.min(1, (now - start) / dur);
+          // ease-out cubic
+          const eased = 1 - Math.pow(1 - t, 3);
+          const v = target * eased;
+          el.textContent = decimals ? v.toFixed(decimals) : Math.round(v).toString();
+          if (t < 1) requestAnimationFrame(tick);
+          else el.textContent = decimals ? target.toFixed(decimals) : target.toString();
+        }
+        requestAnimationFrame(tick);
+      });
+    }, { threshold: 0.4 });
+    els.forEach(el => io.observe(el));
+  })();
+
+  // ============== visibility-aware idle (no rAF loops running, but keep contract) ==============
+  document.addEventListener('visibilitychange', () => {
+    // count-ups already self-terminate; placeholder for future rAF loops.
+  });
+</script>
+
+</body>
+</html>

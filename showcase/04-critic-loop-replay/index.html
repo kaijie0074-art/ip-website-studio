@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Critic Loop · 反 Reward Hacking 的现场重演</title>
+<style>
+@property --ring-deg{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --score-hue{syntax:'<number>';inherits:false;initial-value:0}
+
+:root{
+  --bg:#f6f5f1;
+  --bg-warm:#efece4;
+  --paper:#ffffff;
+  --ink:#16161a;
+  --ink-2:#3a3a42;
+  --dim:#8c8c92;
+  --hair:rgba(20,20,26,.10);
+  --hair-2:rgba(20,20,26,.05);
+  --good:#1d8a5e;
+  --bad:#c43a3a;
+  --warn:#d68a1a;
+  --accent:#1f3aff;
+  --critic:#0a0a0f;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Helvetica Neue","Helvetica","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --mono:"SF Mono","JetBrains Mono","Menlo","Consolas",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;user-select:none;cursor:default}
+#root{height:100vh;width:100vw;position:relative;overflow:hidden}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.4;
+  background-image:radial-gradient(rgba(20,20,26,.07) .5px,transparent .8px);
+  background-size:3px 3px;
+}
+
+/* STAGE */
+.stage{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  padding:74px 6vw 64px;
+  transition:opacity 700ms cubic-bezier(.2,.7,.2,1),transform 900ms cubic-bezier(.2,.7,.2,1);
+  overflow:hidden;z-index:2;
+}
+.stage.in{opacity:1;transform:scale(1)}
+.stage.out{opacity:0;transform:scale(1.04);pointer-events:none}
+.stage.pre{opacity:0;transform:scale(.98);pointer-events:none}
+
+/* TYPOGRAPHY */
+.t-hero{font-weight:200;font-size:clamp(48px,9.5vw,148px);line-height:.98;letter-spacing:-.045em;text-align:center;text-wrap:balance;color:var(--ink)}
+.t-title{font-weight:300;font-size:clamp(28px,4.6vw,68px);line-height:1.08;letter-spacing:-.025em;text-align:center;text-wrap:balance}
+.t-eyebrow{font-weight:500;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--dim)}
+.t-foot{font-weight:300;font-size:clamp(13px,1.3vw,17px);color:var(--dim);letter-spacing:.01em;line-height:1.65}
+.mono{font-family:var(--mono)}
+
+/* RAIL */
+.rail{position:fixed;top:24px;left:50%;transform:translateX(-50%);display:flex;gap:14px;z-index:100}
+.rail .tick{width:18px;height:1px;background:rgba(20,20,26,.18);cursor:pointer;transition:background 240ms,height 240ms,width 240ms}
+.rail .tick:hover{background:rgba(20,20,26,.5)}
+.rail .tick.done{background:rgba(20,20,26,.42)}
+.rail .tick.active{background:var(--ink);width:26px;height:2px;margin-top:-1px}
+
+.corner{position:fixed;bottom:20px;left:24px;z-index:100;font-size:9px;letter-spacing:.36em;color:var(--dim);text-transform:uppercase;font-weight:500;font-family:var(--mono)}
+.corner-r{position:fixed;bottom:20px;right:24px;z-index:100;font-size:9px;letter-spacing:.36em;color:var(--dim);text-transform:uppercase;font-weight:500;font-family:var(--mono)}
+.corner-tl{position:fixed;top:24px;left:24px;z-index:100;font-size:9px;letter-spacing:.36em;color:var(--dim);text-transform:uppercase;font-weight:600;font-family:var(--mono)}
+
+/* NEXT BTN */
+.next{display:inline-flex;align-items:center;gap:14px;margin-top:48px;color:var(--ink);font-size:13px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;background:none;border:none;padding:10px 0;transition:opacity 200ms,gap .25s;font-family:inherit}
+.next:hover{opacity:.6;gap:20px}
+.next .arrow{display:inline-block;width:28px;height:1px;background:var(--ink);position:relative}
+.next .arrow::after{content:'';position:absolute;right:0;top:-3px;width:7px;height:7px;border-top:1px solid var(--ink);border-right:1px solid var(--ink);transform:rotate(45deg)}
+
+/* ──────── PHASE 0 — HELLO ──────── */
+.hello-stage .h-eyebrow{margin-bottom:32px;opacity:0;animation:rise 1.2s .2s forwards}
+.hello-title{font-weight:200;font-size:clamp(46px,9vw,140px);line-height:.96;letter-spacing:-.05em;text-align:center;max-width:1100px;text-wrap:balance}
+.hello-title .word{display:inline-block;opacity:0;transform:translateY(20px);filter:blur(8px);animation:word-in 1.1s cubic-bezier(.2,.7,.2,1) forwards}
+.hello-title .word.accent{color:var(--bad);font-weight:400}
+.hello-title .word.dim{color:var(--dim)}
+@keyframes word-in{to{opacity:1;transform:translateY(0);filter:blur(0)}}
+@keyframes rise{to{opacity:1}}
+.hello-sub{margin-top:48px;font-size:clamp(14px,1.5vw,18px);color:var(--ink-2);line-height:1.75;max-width:560px;text-align:center;opacity:0;animation:rise 1.2s 2.2s forwards;font-weight:300}
+.hello-cta{margin-top:36px;display:flex;align-items:center;gap:12px;font-size:10px;letter-spacing:.45em;text-transform:uppercase;color:var(--dim);font-weight:600;opacity:0;animation:rise 1.2s 3s forwards,cta-pulse 2.6s 3.8s ease-in-out infinite;font-family:var(--mono)}
+.hello-cta .rule{display:inline-block;width:28px;height:1px;background:currentColor;opacity:.5}
+@keyframes cta-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+/* ──────── PHASE 1 — SELF-EVAL (虚高自评) ──────── */
+.self-stage{justify-content:flex-start;padding-top:90px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.self-header{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.self-tag{font-size:9px;letter-spacing:.32em;text-transform:uppercase;color:var(--dim);font-weight:600;font-family:var(--mono)}
+.self-tag .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);box-shadow:0 0 12px rgba(29,138,94,.5);margin-right:8px;vertical-align:middle;animation:dot-pulse 1.6s ease-in-out infinite}
+@keyframes dot-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+
+.report-card{
+  width:100%;max-width:520px;background:var(--paper);border:1px solid var(--hair);
+  border-radius:6px;padding:28px 30px 24px;
+  box-shadow:0 1px 0 rgba(20,20,26,.04),0 20px 50px -28px rgba(20,20,26,.15);
+  opacity:0;transform:translateY(16px);animation:card-in 1s .4s cubic-bezier(.2,.7,.2,1) forwards;
+  position:relative;
+}
+@keyframes card-in{to{opacity:1;transform:translateY(0)}}
+.report-card::before{
+  content:'GENERATOR';position:absolute;top:14px;right:18px;
+  font-size:8px;letter-spacing:.4em;color:var(--dim);font-family:var(--mono);font-weight:700;
+}
+.report-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:18px;border-bottom:1px solid var(--hair-2);margin-bottom:18px}
+.report-title{font-size:13px;letter-spacing:.05em;color:var(--ink-2);font-weight:500}
+.report-title .sub{display:block;font-size:9px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-top:4px;font-family:var(--mono)}
+
+.score-ring-wrap{display:flex;align-items:center;justify-content:center;gap:22px;margin:10px 0 22px}
+.score-ring{
+  position:relative;width:120px;height:120px;border-radius:50%;
+  background:conic-gradient(from -90deg,var(--good) 0deg,var(--good) var(--ring-deg),var(--hair) var(--ring-deg) 360deg);
+  --ring-deg:331deg;
+  transition:--ring-deg 1.4s cubic-bezier(.2,.7,.2,1),background 800ms ease;
+  display:flex;align-items:center;justify-content:center;
+}
+.score-ring::before{content:'';position:absolute;inset:8px;border-radius:50%;background:var(--paper)}
+.score-ring .num{position:relative;font-size:32px;font-weight:300;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.score-ring .num .of{font-size:11px;color:var(--dim);font-weight:400;letter-spacing:0}
+.score-meta{flex:1;display:flex;flex-direction:column;gap:6px}
+.score-meta .row{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-2);font-family:var(--mono)}
+.score-meta .row .v{color:var(--good);font-weight:500}
+.score-meta .row .v.warn{color:var(--warn)}
+.score-meta .row .v.bad{color:var(--bad)}
+
+.report-bullets{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.report-bullets li{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--ink-2);line-height:1.55}
+.report-bullets li .check{flex-shrink:0;width:14px;height:14px;border-radius:50%;background:var(--good);display:inline-flex;align-items:center;justify-content:center;margin-top:2px}
+.report-bullets li .check::after{content:'';width:5px;height:8px;border-right:1.5px solid #fff;border-bottom:1.5px solid #fff;transform:rotate(45deg) translate(-1px,-1px)}
+.report-bullets li .k{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.05em;margin-right:4px}
+
+.self-claim{margin-top:26px;font-size:clamp(15px,1.8vw,22px);color:var(--ink);font-weight:300;line-height:1.5;max-width:520px;text-align:left;opacity:0;animation:rise 1s 1.6s forwards}
+.self-claim em{font-style:normal;color:var(--bad);font-weight:500;font-family:var(--mono)}
+
+/* ──────── PHASE 2 — CRITIC ARRIVES ──────── */
+.critic-stage{justify-content:center;gap:22px}
+.critic-banner{position:absolute;top:80px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.5em;color:var(--dim);text-transform:uppercase;font-weight:600;font-family:var(--mono)}
+.critic-banner .sep{margin:0 .8em;opacity:.4}
+.critic-headline{font-size:clamp(28px,5vw,72px);font-weight:200;letter-spacing:-.035em;line-height:1.1;text-align:center;text-wrap:balance;max-width:900px}
+.critic-headline em{font-style:normal;color:var(--bad);font-weight:400}
+
+.score-compare{display:flex;align-items:center;justify-content:center;gap:clamp(22px,5vw,80px);margin-top:18px;flex-wrap:wrap}
+.score-block{display:flex;flex-direction:column;align-items:center;gap:10px}
+.score-block .tag{font-size:9px;letter-spacing:.35em;text-transform:uppercase;color:var(--dim);font-weight:600;font-family:var(--mono)}
+.score-big{font-size:clamp(56px,10vw,128px);font-weight:200;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.score-big.gen{color:var(--ink-2);text-decoration:line-through;text-decoration-color:rgba(20,20,26,.25);text-decoration-thickness:2px}
+.score-big.crit{color:var(--bad)}
+.score-big .of{font-size:.35em;color:var(--dim);font-weight:300;letter-spacing:0;margin-left:4px}
+.score-arrow{font-size:clamp(28px,5vw,56px);color:var(--dim);font-weight:200;line-height:1}
+
+.inflation-pill{
+  display:inline-flex;align-items:center;gap:10px;padding:8px 16px;
+  background:rgba(196,58,58,.08);border:1px solid rgba(196,58,58,.25);border-radius:99px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.15em;color:var(--bad);font-weight:600;
+  margin-top:8px;opacity:0;transform:translateY(8px);
+}
+.inflation-pill.on{animation:pill-in .8s 1.4s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes pill-in{to{opacity:1;transform:translateY(0)}}
+.inflation-pill .dot{width:5px;height:5px;border-radius:50%;background:var(--bad);animation:dot-pulse 1.4s ease-in-out infinite}
+
+.critic-note{font-size:13px;color:var(--ink-2);line-height:1.7;max-width:520px;text-align:center;margin-top:10px}
+.critic-note strong{color:var(--ink);font-weight:500}
+
+/* ──────── PHASE 3 — GAPS ──────── */
+.gaps-stage{justify-content:flex-start;padding-top:84px;padding-bottom:60px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.gaps-header{display:flex;justify-content:space-between;align-items:flex-end;width:100%;max-width:760px;margin-bottom:22px;gap:16px;flex-wrap:wrap}
+.gaps-title{font-size:clamp(22px,3.2vw,40px);font-weight:300;letter-spacing:-.025em;line-height:1.2}
+.gaps-title em{font-style:normal;color:var(--bad);font-weight:500;font-family:var(--mono)}
+.gaps-meta{font-size:10px;letter-spacing:.32em;color:var(--dim);text-transform:uppercase;font-family:var(--mono);font-weight:600;text-align:right}
+.gaps-meta .v{color:var(--bad)}
+
+.gap-list{width:100%;max-width:760px;display:flex;flex-direction:column;gap:1px;background:var(--hair);border:1px solid var(--hair)}
+.gap-item{
+  background:var(--paper);padding:16px 18px;display:grid;
+  grid-template-columns:auto 1fr auto;gap:14px;align-items:flex-start;
+  opacity:0;transform:translateX(-12px);
+  transition:opacity .8s,transform .8s,background .3s;
+  position:relative;
+}
+.gap-item.in{opacity:1;transform:none}
+.gap-list.active .gap-item:nth-child(1){transition-delay:.15s}
+.gap-list.active .gap-item:nth-child(2){transition-delay:.45s}
+.gap-list.active .gap-item:nth-child(3){transition-delay:.75s}
+.gap-list.active .gap-item:nth-child(4){transition-delay:1.05s}
+.gap-list.active .gap-item:nth-child(5){transition-delay:1.35s}
+.gap-id{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--bad);font-weight:600;line-height:1.5;padding-top:1px;min-width:54px}
+.gap-body{display:flex;flex-direction:column;gap:4px;min-width:0}
+.gap-headline{font-size:13.5px;color:var(--ink);font-weight:500;line-height:1.4}
+.gap-quote{font-size:11.5px;color:var(--dim);line-height:1.5;font-style:italic;font-family:var(--sans)}
+.gap-quote::before{content:'"';opacity:.6;margin-right:2px}
+.gap-quote::after{content:'"';opacity:.6;margin-left:2px}
+.gap-sev{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--bad);font-weight:600;padding:3px 8px;border:1px solid rgba(196,58,58,.3);background:rgba(196,58,58,.05);border-radius:2px;align-self:flex-start;white-space:nowrap}
+
+/* ──────── PHASE 4 — ITERATE (fixes) ──────── */
+.iter-stage{justify-content:flex-start;padding-top:84px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.iter-title{font-size:clamp(22px,3.2vw,40px);font-weight:300;letter-spacing:-.025em;text-align:center;margin-bottom:6px}
+.iter-title em{font-style:normal;color:var(--good);font-weight:500;font-family:var(--mono)}
+.iter-sub{font-size:11px;letter-spacing:.32em;color:var(--dim);text-transform:uppercase;font-weight:600;font-family:var(--mono);margin-bottom:24px}
+
+.fix-grid{width:100%;max-width:760px;display:flex;flex-direction:column;gap:1px;background:var(--hair);border:1px solid var(--hair);margin-bottom:18px}
+.fix-row{
+  background:var(--paper);padding:14px 18px;display:grid;
+  grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;
+  position:relative;
+}
+.fix-id{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-2);font-weight:600;min-width:54px}
+.fix-desc{font-size:12.5px;color:var(--ink-2);line-height:1.4}
+.fix-bar-wrap{width:clamp(60px,12vw,120px);height:4px;background:rgba(196,58,58,.15);position:relative;overflow:hidden;border-radius:2px}
+.fix-bar-wrap::after{content:'';position:absolute;inset:0;background:rgba(196,58,58,.7);transform:translateX(0);transition:transform 1.2s cubic-bezier(.2,.7,.2,1),background 1.2s ease}
+.fix-row.fixed .fix-bar-wrap::after{transform:translateX(100%);background:rgba(29,138,94,.7)}
+.fix-status{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--bad);font-weight:600;min-width:64px;text-align:right;transition:color .4s ease}
+.fix-row.fixed .fix-status{color:var(--good)}
+.fix-row.fixed .fix-status::before{content:'✓ ';font-family:var(--sans)}
+.fix-row::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--bad);transition:background .4s ease,opacity .4s ease;
+}
+.fix-row.fixed::before{background:var(--good)}
+
+.iter-progress{width:100%;max-width:760px;display:flex;align-items:center;gap:14px;margin-top:6px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase;font-weight:600}
+.iter-progress .bar{flex:1;height:1px;background:var(--hair);position:relative;overflow:hidden}
+.iter-progress .bar::after{content:'';position:absolute;inset:0;background:var(--good);transform:translateX(-100%);transition:transform 1s cubic-bezier(.2,.7,.2,1)}
+.iter-progress .bar.fill::after{transform:translateX(0)}
+.iter-progress .v{color:var(--good)}
+
+/* ──────── PHASE 5 — S-LOCK ──────── */
+.lock-stage{justify-content:center;gap:18px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.lock-eyebrow{font-size:10px;letter-spacing:.45em;text-transform:uppercase;color:var(--dim);font-weight:600;font-family:var(--mono)}
+
+.curve-wrap{width:min(560px,86vw);height:160px;position:relative}
+.curve-wrap svg{width:100%;height:100%;overflow:visible}
+.curve-path{fill:none;stroke:var(--ink);stroke-width:1.2;stroke-dasharray:600;stroke-dashoffset:600;transition:stroke-dashoffset 2.6s cubic-bezier(.4,0,.4,1)}
+.curve-wrap.draw .curve-path{stroke-dashoffset:0}
+.curve-thr{stroke:var(--good);stroke-width:1;stroke-dasharray:4 4;opacity:.6}
+.curve-thr-label{font-family:var(--mono);font-size:9px;letter-spacing:.15em;fill:var(--good);font-weight:600}
+.curve-dot{r:0;fill:var(--good);transition:r .4s ease 2.4s}
+.curve-wrap.draw .curve-dot{r:5}
+.curve-dot-halo{r:0;fill:none;stroke:var(--good);stroke-width:1;opacity:.5;transition:r .8s ease 2.6s,opacity 1s ease 2.6s}
+.curve-wrap.draw .curve-dot-halo{r:14;opacity:0}
+.curve-axis-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;fill:var(--dim);font-weight:600}
+.curve-score-pop{font-family:var(--mono);font-size:11px;fill:var(--good);font-weight:600;opacity:0;transition:opacity .8s ease 2.6s}
+.curve-wrap.draw .curve-score-pop{opacity:1}
+
+.lock-title{font-size:clamp(32px,5.6vw,80px);font-weight:200;letter-spacing:-.04em;line-height:1.05;text-align:center;text-wrap:balance;max-width:900px;margin-top:8px}
+.lock-title em{font-style:normal;color:var(--good);font-weight:400}
+.lock-sub{font-size:clamp(13px,1.5vw,17px);color:var(--ink-2);line-height:1.7;max-width:520px;text-align:center;font-weight:300}
+.lock-sub strong{color:var(--ink);font-weight:500}
+
+.protocol-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hair);border:1px solid var(--hair);width:100%;max-width:680px;margin-top:14px}
+.proto-cell{background:var(--paper);padding:16px 14px;display:flex;flex-direction:column;gap:6px;opacity:.3;transition:opacity .8s ease,background .8s ease}
+.proto-cell.on{opacity:1;background:var(--paper)}
+.proto-cell.on::after{
+  content:'';position:absolute;
+}
+.proto-cell .pid{font-family:var(--mono);font-size:9px;letter-spacing:.25em;color:var(--good);font-weight:700;text-transform:uppercase}
+.proto-cell .ptitle{font-size:12px;color:var(--ink);font-weight:500;line-height:1.35}
+.proto-cell .pdesc{font-size:10.5px;color:var(--dim);line-height:1.5}
+.proto-cell .pcheck{position:absolute;top:12px;right:12px;width:12px;height:12px;border-radius:50%;background:var(--good);opacity:0;transition:opacity .6s ease}
+.proto-cell.on .pcheck{opacity:1}
+.proto-cell.on .pcheck::after{content:'';position:absolute;left:3px;top:5px;width:3px;height:5px;border-right:1.4px solid #fff;border-bottom:1.4px solid #fff;transform:rotate(45deg)}
+.proto-cell{position:relative}
+
+.sig{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;animation:rise 1.4s 3.4s forwards}
+.sig .hairline{width:40px;height:1px;background:linear-gradient(90deg,transparent,rgba(20,20,26,.4),transparent)}
+.sig .name{font-size:12px;letter-spacing:.04em;color:var(--ink-2);font-weight:400}
+.sig .name strong{color:var(--ink);font-weight:500}
+.sig .colophon{font-size:8px;letter-spacing:.5em;color:var(--dim);font-weight:600;text-transform:uppercase;font-family:var(--mono)}
+.sig .replay{background:none;border:none;color:var(--dim);cursor:pointer;font:inherit;font-size:10px;letter-spacing:.35em;text-transform:uppercase;font-weight:600;padding:6px 10px;transition:color .2s,letter-spacing .2s;font-family:var(--mono);margin-top:4px}
+.sig .replay:hover{color:var(--ink);letter-spacing:.45em}
+
+/* ───── responsive ───── */
+@media (max-width:640px){
+  .stage{padding:64px 5vw 60px}
+  .self-stage,.gaps-stage,.iter-stage{padding-top:70px}
+  .corner,.corner-r{font-size:8px;letter-spacing:.3em}
+  .corner-tl{font-size:8px;letter-spacing:.3em}
+  .report-card{padding:22px 20px 20px}
+  .score-ring{width:96px;height:96px}
+  .score-ring .num{font-size:26px}
+  .score-meta .row{font-size:10px}
+  .score-compare{gap:18px}
+  .gaps-header{margin-bottom:18px}
+  .gap-item{grid-template-columns:auto 1fr;gap:10px;padding:14px}
+  .gap-sev{grid-column:1 / -1;justify-self:flex-end;margin-top:4px}
+  .gap-id{min-width:auto}
+  .fix-row{grid-template-columns:auto 1fr;gap:8px;padding:12px 14px}
+  .fix-bar-wrap{grid-column:2;width:100%;margin-top:4px}
+  .fix-status{grid-column:2;justify-self:flex-end;margin-top:2px;font-size:8px}
+  .fix-id{min-width:auto;font-size:10px}
+  .fix-desc{font-size:11.5px}
+  .protocol-grid{grid-template-columns:1fr}
+  .lock-title{font-size:clamp(28px,7vw,48px)}
+  .hello-title{font-size:clamp(38px,10vw,80px)}
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="rail" id="rail"></div>
+  <div class="corner-tl">Critic Loop · 2026</div>
+  <div class="corner">反 Reward Hacking · 现场重演</div>
+  <div class="corner-r" id="cornerR">01 ／ 6 · HELLO</div>
+
+  <!-- PHASE 0 — HELLO -->
+  <div class="stage in hello-stage" data-p="0" id="helloStage">
+    <div class="t-eyebrow h-eyebrow">Phase 00 · Critic Loop</div>
+    <h1 class="hello-title">
+      <span class="word" style="animation-delay:.5s">你即将经历一次</span>
+      <span class="word accent" style="animation-delay:1.0s">反&nbsp;Reward&nbsp;Hacking</span><br>
+      <span class="word" style="animation-delay:1.5s">的现场。</span>
+    </h1>
+    <p class="hello-sub">Generator 给自己打分会本能虚高。<br>所以我们让另一个 agent 重打一遍，找出差距，迭代回炉，直到 S 档闭环。</p>
+    <div class="hello-cta" onclick="goPhase(1)" style="cursor:pointer">
+      <span class="rule"></span>按 →&nbsp;&nbsp;或点击 开始<span class="rule"></span>
+    </div>
+  </div>
+
+  <!-- PHASE 1 — SELF-EVAL -->
+  <div class="stage pre self-stage" data-p="1">
+    <div class="self-header">
+      <span class="self-tag"><span class="dot"></span>Phase 01 · Generator Self-Report</span>
+    </div>
+
+    <div class="report-card" id="reportCard">
+      <div class="report-head">
+        <div class="report-title">
+          作品自评报告
+          <span class="sub">Task #G-2026-0524 · Build-site</span>
+        </div>
+      </div>
+      <div class="score-ring-wrap">
+        <div class="score-ring">
+          <div class="num">9.2<span class="of"> / 10</span></div>
+        </div>
+        <div class="score-meta">
+          <div class="row"><span>A · 技术</span><span class="v">4.6</span></div>
+          <div class="row"><span>B · 审美</span><span class="v">4.7</span></div>
+          <div class="row"><span>C · 品味</span><span class="v">4.5</span></div>
+          <div class="row" style="margin-top:6px;border-top:1px solid var(--hair-2);padding-top:6px"><span style="color:var(--dim)">加权</span><span class="v" style="font-weight:600">9.20 / 10</span></div>
+        </div>
+      </div>
+      <ul class="report-bullets">
+        <li><span class="check"></span><div><span class="k">R-016</span>金句锋利、画面感强</div></li>
+        <li><span class="check"></span><div><span class="k">R-021</span>动效设计精致到位</div></li>
+        <li><span class="check"></span><div><span class="k">R-023</span>字号层级清晰有节奏</div></li>
+        <li><span class="check"></span><div><span class="k">R-028</span>情绪扳机已成功触发</div></li>
+        <li><span class="check"></span><div><span class="k">R-010</span>移动端体验全面达标</div></li>
+      </ul>
+    </div>
+
+    <p class="self-claim">「我做完了。<br>自评 <em>9.2 / 10</em>。可以部署。」</p>
+
+    <button class="next" onclick="goPhase(2)"><span>等等 ——</span><span class="arrow"></span></button>
+  </div>
+
+  <!-- PHASE 2 — CRITIC ARRIVES -->
+  <div class="stage pre critic-stage" data-p="2" id="criticStage">
+    <div class="critic-banner">Phase 02 <span class="sep">·</span> Independent Critic <span class="sep">·</span> Read-only · No Self-context</div>
+
+    <h2 class="critic-headline">
+      让<em>另一个 agent</em>重打。<br>它不读自评，只读 rubric。
+    </h2>
+
+    <div class="score-compare">
+      <div class="score-block">
+        <span class="tag">Generator 自评</span>
+        <div class="score-big gen" id="scoreGen">9.2<span class="of">/10</span></div>
+      </div>
+      <div class="score-arrow">→</div>
+      <div class="score-block">
+        <span class="tag">Critic 复评</span>
+        <div class="score-big crit" id="scoreCrit">9.2<span class="of">/10</span></div>
+      </div>
+    </div>
+
+    <div class="inflation-pill" id="inflPill"><span class="dot"></span>INFLATION &nbsp;+1.5</div>
+
+    <p class="critic-note">F-001：generator 自评稳定 inflate +0.8 ~ +1.5。<br>所以 <strong>独立 critic 是硬约束</strong>，不是装饰。</p>
+
+    <button class="next" onclick="goPhase(3)"><span>看 5 个差距</span><span class="arrow"></span></button>
+  </div>
+
+  <!-- PHASE 3 — 5 GAPS -->
+  <div class="stage pre gaps-stage" data-p="3" id="gapsStage">
+    <div class="gaps-header">
+      <h3 class="gaps-title">Critic 找到 <em>5 个</em> 可定位差距</h3>
+      <div class="gaps-meta">Verdict · <span class="v">SHIP-BLOCKED</span></div>
+    </div>
+
+    <div class="gap-list" id="gapList">
+      <div class="gap-item">
+        <span class="gap-id">R-028</span>
+        <div class="gap-body">
+          <div class="gap-headline">情绪扳机：BGM 默认 Off，拦住 S 档</div>
+          <div class="gap-quote">audio 标签存在，autoplay 被静音，用户从未真听到 ambient pad。</div>
+        </div>
+        <span class="gap-sev">−1.2</span>
+      </div>
+      <div class="gap-item">
+        <span class="gap-id">R-021</span>
+        <div class="gap-body">
+          <div class="gap-headline">motif 未做 audio.currentTime phrase mapping</div>
+          <div class="gap-quote">scene 切换靠 setTimeout，与音频节拍无关；动效在飘。</div>
+        </div>
+        <span class="gap-sev">−0.8</span>
+      </div>
+      <div class="gap-item">
+        <span class="gap-id">R-023</span>
+        <div class="gap-body">
+          <div class="gap-headline">字号 8-9 档超过 5 档红线</div>
+          <div class="gap-quote">font-size: 11/12/13/14/16/18/22/28/40/96px,层级噪声盖过节奏。</div>
+        </div>
+        <span class="gap-sev">−0.6</span>
+      </div>
+      <div class="gap-item">
+        <span class="gap-id">R-016</span>
+        <div class="gap-body">
+          <div class="gap-headline">抽象金句陷阱：缺时间 + 地点 + 感官钩子</div>
+          <div class="gap-quote">"让我们追逐光与梦想"——没有动名词，没有具体场景,读完只剩气味。</div>
+        </div>
+        <span class="gap-sev">−1.0</span>
+      </div>
+      <div class="gap-item">
+        <span class="gap-id">R-010</span>
+        <div class="gap-body">
+          <div class="gap-headline">按钮 26-38px &lt; 44px tap target</div>
+          <div class="gap-quote">移动端 5 处可点击区域不达标,Critic playwright 375px 命中失败。</div>
+        </div>
+        <span class="gap-sev">−0.9</span>
+      </div>
+    </div>
+
+    <button class="next" onclick="goPhase(4)"><span>回炉</span><span class="arrow"></span></button>
+  </div>
+
+  <!-- PHASE 4 — ITERATE -->
+  <div class="stage pre iter-stage" data-p="4" id="iterStage">
+    <div class="iter-sub">Phase 04 · Iterate · Round 2</div>
+    <h3 class="iter-title">5 个 fix，每个对应一个数字 <em>归位</em></h3>
+
+    <div class="fix-grid" id="fixGrid">
+      <div class="fix-row" data-i="0">
+        <span class="fix-id">R-028</span>
+        <span class="fix-desc">BGM 改默认 On + 加 user gesture 启动按钮</span>
+        <div class="fix-bar-wrap"></div>
+        <span class="fix-status">PENDING</span>
+      </div>
+      <div class="fix-row" data-i="1">
+        <span class="fix-id">R-021</span>
+        <span class="fix-desc">用 audio.currentTime 驱动 phrase mapping</span>
+        <div class="fix-bar-wrap"></div>
+        <span class="fix-status">PENDING</span>
+      </div>
+      <div class="fix-row" data-i="2">
+        <span class="fix-id">R-023</span>
+        <span class="fix-desc">字号压缩到 5 档：12 / 14 / 18 / 32 / 96px</span>
+        <div class="fix-bar-wrap"></div>
+        <span class="fix-status">PENDING</span>
+      </div>
+      <div class="fix-row" data-i="3">
+        <span class="fix-id">R-016</span>
+        <span class="fix-desc">金句加时间锚 + 地点 + 感官动名词</span>
+        <div class="fix-bar-wrap"></div>
+        <span class="fix-status">PENDING</span>
+      </div>
+      <div class="fix-row" data-i="4">
+        <span class="fix-id">R-010</span>
+        <span class="fix-desc">所有 tap target ≥ 44px,加 hit-slop</span>
+        <div class="fix-bar-wrap"></div>
+        <span class="fix-status">PENDING</span>
+      </div>
+    </div>
+
+    <div class="iter-progress">
+      <span>FIXES</span>
+      <div class="bar" id="iterBar"></div>
+      <span class="v" id="iterCount">0 / 5</span>
+    </div>
+
+    <button class="next" onclick="goPhase(5)" id="iterNext" style="opacity:.3;pointer-events:none"><span>S 档闭环</span><span class="arrow"></span></button>
+  </div>
+
+  <!-- PHASE 5 — S-LOCK -->
+  <div class="stage pre lock-stage" data-p="5" id="lockStage">
+    <div class="lock-eyebrow">Phase 05 · S-tier Lock-in</div>
+
+    <div class="curve-wrap" id="curveWrap">
+      <svg viewBox="0 0 560 160" preserveAspectRatio="none">
+        <line x1="40" y1="80" x2="540" y2="80" class="curve-thr" />
+        <text x="48" y="73" class="curve-thr-label">THRESHOLD · 4.50</text>
+        <path class="curve-path" d="M 40,118 C 130,114 200,108 260,100 C 320,92 360,88 400,68 C 440,48 480,38 540,30" />
+        <circle class="curve-dot-halo" cx="540" cy="30" />
+        <circle class="curve-dot" cx="540" cy="30" />
+        <text x="40" y="135" class="curve-axis-label">R1 · 4.55</text>
+        <text x="540" y="22" class="curve-score-pop" text-anchor="end">R2 · 4.95</text>
+      </svg>
+    </div>
+
+    <h2 class="lock-title">
+      S 档闭环 <em>达成</em>。
+    </h2>
+    <p class="lock-sub">Critic Loop <strong>不是装饰</strong>。<br>是反 reward hacking 的<strong>硬约束</strong>。</p>
+
+    <div class="protocol-grid" id="protoGrid">
+      <div class="proto-cell" data-i="0">
+        <span class="pid">§7.1</span>
+        <div class="ptitle">独立 critic 强制</div>
+        <div class="pdesc">不是 generator 切换人格,是另一个 agent 不读自评只读 rubric。</div>
+        <span class="pcheck"></span>
+      </div>
+      <div class="proto-cell" data-i="1">
+        <span class="pid">§7.2</span>
+        <div class="ptitle">≥ 3 个可定位差距</div>
+        <div class="pdesc">每个差距给 selector / 行号 / quote,不许"整体感觉一般"。</div>
+        <span class="pcheck"></span>
+      </div>
+      <div class="proto-cell" data-i="2">
+        <span class="pid">§7.3</span>
+        <div class="ptitle">门槛 4.5 才放 ship</div>
+        <div class="pdesc">B 档及以下回炉,3 轮过不了找用户讨论需求冲突。</div>
+        <span class="pcheck"></span>
+      </div>
+    </div>
+
+    <div class="sig">
+      <div class="hairline"></div>
+      <div class="name"><strong>杨凯杰</strong> · 2026 · 训练自己的 AI</div>
+      <div class="colophon">Critic Loop · Fin.</div>
+      <button class="replay" onclick="replay()">再 来 一 次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PHASES=[
+  {i:0,label:'HELLO'},{i:1,label:'SELF-EVAL'},{i:2,label:'CRITIC'},
+  {i:3,label:'GAPS'},{i:4,label:'ITERATE'},{i:5,label:'S-LOCK'}
+];
+let curPhase=0,done={},entered={};
+
+// ── audio ──
+let audioCtx;
+function ensureAudio(){
+  if(!audioCtx){
+    try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}
+  }
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+function ping(freq=720,dur=.22,type='sine',gain=.10){
+  const ctx=ensureAudio();if(!ctx)return;
+  const o=ctx.createOscillator();const g=ctx.createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(0,ctx.currentTime);
+  g.gain.linearRampToValueAtTime(gain,ctx.currentTime+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+dur);
+  o.connect(g);g.connect(ctx.destination);
+  o.start();o.stop(ctx.currentTime+dur+.02);
+}
+function phasePing(p){
+  // each phase gets its own tonality
+  const map={0:[660,'sine'],1:[520,'sine'],2:[392,'triangle'],3:[330,'square'],4:[523,'sine'],5:[784,'sine']};
+  const [f,t]=map[p]||[600,'sine'];
+  ping(f,.28,t,.085);
+  if(p===2)setTimeout(()=>ping(f*0.5,.4,'sawtooth',.06),140);
+  if(p===5){setTimeout(()=>ping(988,.4,'sine',.07),180);setTimeout(()=>ping(1175,.5,'sine',.05),360);}
+}
+
+const rail=document.getElementById('rail');
+const cornerR=document.getElementById('cornerR');
+PHASES.forEach((p,i)=>{
+  const t=document.createElement('div');
+  t.className='tick'+(i===0?' active':'');
+  t.dataset.i=i;t.title=p.label;
+  t.onclick=()=>goPhase(i);
+  rail.appendChild(t);
+});
+function updateRail(){
+  Array.from(rail.children).forEach((el,i)=>{
+    el.classList.toggle('active',i===curPhase);
+    el.classList.toggle('done',!!done[i]);
+  });
+  cornerR.textContent=`${String(curPhase+1).padStart(2,'0')} ／ ${PHASES.length} · ${PHASES[curPhase].label}`;
+}
+
+function goPhase(target){
+  if(target===curPhase||target<0||target>=PHASES.length)return;
+  const cur=document.querySelector(`.stage[data-p="${curPhase}"]`);
+  const next=document.querySelector(`.stage[data-p="${target}"]`);
+  done[curPhase]=true;
+  cur.classList.remove('in');cur.classList.add('out');
+  setTimeout(()=>{
+    cur.classList.remove('out');cur.classList.add('pre');
+    next.classList.remove('pre');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      next.classList.add('in');
+      curPhase=target;
+      updateRail();
+      phasePing(target);
+      onEnterPhase(target);
+    }));
+  },520);
+}
+window.goPhase=goPhase;
+
+// PHASE 2 — critic score animation
+function runCriticPhase(){
+  const gen=document.getElementById('scoreGen');
+  const crit=document.getElementById('scoreCrit');
+  const pill=document.getElementById('inflPill');
+  crit.textContent='';
+  // render initial
+  const setVal=(el,v)=>{
+    el.innerHTML=v.toFixed(1)+'<span class="of">/10</span>';
+  };
+  setVal(crit,9.2);
+  const start=performance.now();
+  const dur=1600;
+  const from=9.2,to=7.7;
+  const tick=(now)=>{
+    const e=Math.min(1,(now-start)/dur);
+    // easeOutCubic
+    const k=1-Math.pow(1-e,3);
+    const v=from+(to-from)*k;
+    setVal(crit,v);
+    if(e<1)requestAnimationFrame(tick);
+    else{
+      pill.classList.add('on');
+      ping(220,.5,'sawtooth',.05);
+    }
+  };
+  requestAnimationFrame(tick);
+}
+
+// PHASE 3 — gap stagger + sequential pings
+function runGapsPhase(){
+  const list=document.getElementById('gapList');
+  list.classList.add('active');
+  list.querySelectorAll('.gap-item').forEach((r,i)=>{
+    setTimeout(()=>{
+      r.classList.add('in');
+      ping(440-i*30,.12,'triangle',.05);
+    },200+i*320);
+  });
+}
+
+// PHASE 4 — iterate fixes
+function runIterPhase(){
+  const rows=document.querySelectorAll('#fixGrid .fix-row');
+  const bar=document.getElementById('iterBar');
+  const countEl=document.getElementById('iterCount');
+  const nextBtn=document.getElementById('iterNext');
+  rows.forEach(r=>{r.classList.remove('fixed');r.querySelector('.fix-status').textContent='PENDING';});
+  bar.classList.remove('fill');
+  countEl.textContent='0 / 5';
+  nextBtn.style.opacity='.3';nextBtn.style.pointerEvents='none';
+  rows.forEach((r,i)=>{
+    setTimeout(()=>{
+      r.classList.add('fixed');
+      r.querySelector('.fix-status').textContent='FIXED';
+      ping(523+i*60,.16,'sine',.07);
+      countEl.textContent=`${i+1} / 5`;
+    },380+i*520);
+  });
+  setTimeout(()=>{
+    bar.classList.add('fill');
+    nextBtn.style.opacity='1';nextBtn.style.pointerEvents='auto';
+    ping(784,.4,'sine',.07);
+  },380+5*520+400);
+}
+
+// PHASE 5 — S-lock
+function runLockPhase(){
+  const wrap=document.getElementById('curveWrap');
+  wrap.classList.remove('draw');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('draw')));
+  const cells=document.querySelectorAll('#protoGrid .proto-cell');
+  cells.forEach(c=>c.classList.remove('on'));
+  cells.forEach((c,i)=>{
+    setTimeout(()=>{
+      c.classList.add('on');
+      ping(660+i*132,.22,'sine',.07);
+    },2300+i*420);
+  });
+}
+
+function onEnterPhase(p){
+  entered[p]=true;
+  if(p===2)setTimeout(runCriticPhase,260);
+  if(p===3)setTimeout(runGapsPhase,200);
+  if(p===4)setTimeout(runIterPhase,200);
+  if(p===5)setTimeout(runLockPhase,200);
+}
+
+function replay(){
+  done={};entered={};
+  // reset critic
+  const crit=document.getElementById('scoreCrit');
+  crit.innerHTML='9.2<span class="of">/10</span>';
+  document.getElementById('inflPill').classList.remove('on');
+  // reset gaps
+  document.getElementById('gapList').classList.remove('active');
+  document.querySelectorAll('.gap-item').forEach(r=>r.classList.remove('in'));
+  // reset iter
+  document.querySelectorAll('#fixGrid .fix-row').forEach(r=>{r.classList.remove('fixed');r.querySelector('.fix-status').textContent='PENDING';});
+  document.getElementById('iterBar').classList.remove('fill');
+  document.getElementById('iterCount').textContent='0 / 5';
+  // reset lock
+  document.getElementById('curveWrap').classList.remove('draw');
+  document.querySelectorAll('#protoGrid .proto-cell').forEach(c=>c.classList.remove('on'));
+  goPhase(0);
+}
+window.replay=replay;
+
+// keyboard
+window.addEventListener('keydown',(e)=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){
+    if(curPhase<PHASES.length-1){e.preventDefault();ensureAudio();goPhase(curPhase+1);}
+  }
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){
+    if(curPhase>0){e.preventDefault();ensureAudio();goPhase(curPhase-1);}
+  }
+});
+// also allow tap-anywhere on hello to advance + unlock audio
+document.getElementById('helloStage').addEventListener('click',(e)=>{
+  if(e.target.closest('.next'))return;
+  ensureAudio();
+  if(curPhase===0)goPhase(1);
+});
+// global pointer for audio unlock
+document.body.addEventListener('pointerdown',()=>ensureAudio(),{once:true});
+
+updateRail();
+</script>
+</body>
+</html>

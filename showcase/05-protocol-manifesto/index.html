@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>训练自己的 AI · 训练自己 — Protocol Manifesto · VOL.01</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500;1,9..144,600&family=Noto+Serif+SC:wght@300;400;500;700;900&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --paper:#f4ece0;
+  --paper-deep:#ede2cf;
+  --paper-pale:#faf5ea;
+  --ink:#1a1411;
+  --ink-soft:#2c241d;
+  --ash:#6e5e4d;
+  --ash-pale:#9e8e7a;
+  --gold:#b88f3c;
+  --gold-deep:#8a6722;
+  --gold-light:#d9b56b;
+  --red:#a23a22;
+  --rule:rgba(26,20,17,.14);
+
+  --f-display:'Fraunces',serif;
+  --f-serif:'Noto Serif SC','Cormorant Garamond',serif;
+  --f-sans:'Inter',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-serif);
+  line-height:1.95;
+  overflow-x:hidden;
+  min-height:100vh;
+  /* paper texture */
+  background-image:
+    radial-gradient(ellipse 60% 80% at 20% 10%,rgba(184,143,60,.05),transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 90%,rgba(162,58,34,.04),transparent 60%),
+    repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(110,94,77,.012) 4px),
+    repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(110,94,77,.012) 4px);
+}
+/* vignette */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 50%,transparent 50%,rgba(26,20,17,.08) 90%,rgba(26,20,17,.18) 100%);
+}
+
+/* ============== 顶部页码 ============== */
+.masthead{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.1rem 1.6rem;
+  background:linear-gradient(to bottom,rgba(244,236,224,.96),rgba(244,236,224,.86) 70%,rgba(244,236,224,0));
+  z-index:60;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  border-bottom:1px solid transparent;
+  transition:border-color .6s;
+}
+.masthead.scrolled{border-bottom-color:var(--rule)}
+.mast-l{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:.92rem;letter-spacing:.04em;color:var(--ink-soft);
+}
+.mast-l em{font-style:italic;color:var(--gold-deep)}
+.mast-c{
+  font-family:var(--f-sans);font-weight:500;
+  font-size:.62rem;letter-spacing:.4em;
+  color:var(--ash);text-transform:uppercase;
+}
+.mast-r{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:.92rem;letter-spacing:.06em;color:var(--ink-soft);
+  display:flex;align-items:center;gap:.5rem;
+  position:relative;
+  min-width:5.4rem;justify-content:flex-end;
+}
+.mast-r .label{
+  font-family:var(--f-sans);font-weight:400;font-size:.56rem;
+  letter-spacing:.3em;color:var(--ash);text-transform:uppercase;
+}
+.page-num{
+  display:inline-block;min-width:2.4rem;text-align:center;
+  font-family:var(--f-display);font-style:italic;font-weight:500;
+  font-size:1.1rem;color:var(--gold-deep);
+  position:relative;
+}
+.page-num::after{
+  content:attr(data-total);
+  position:absolute;left:calc(100% + .2rem);top:.05em;
+  font-family:var(--f-sans);font-weight:400;font-size:.6rem;
+  color:var(--ash-pale);letter-spacing:.1em;
+}
+.page-num.flip{animation:flip .55s ease}
+@keyframes flip{
+  0%{transform:rotateX(0);opacity:1}
+  45%{transform:rotateX(-90deg);opacity:.2}
+  55%{transform:rotateX(90deg);opacity:.2}
+  100%{transform:rotateX(0);opacity:1}
+}
+
+/* ============== Paper flash (章节切换闪光) ============== */
+.paper-flash{
+  position:fixed;inset:0;pointer-events:none;z-index:55;
+  background:linear-gradient(105deg,transparent 0%,transparent 30%,rgba(255,250,238,.0) 45%,rgba(255,250,238,.85) 50%,rgba(255,250,238,.0) 55%,transparent 70%,transparent 100%);
+  background-size:300% 100%;
+  background-position:150% 0;
+  opacity:0;
+}
+.paper-flash.active{
+  animation:flashSweep 1.1s cubic-bezier(.4,0,.2,1);
+}
+@keyframes flashSweep{
+  0%{opacity:0;background-position:150% 0}
+  20%{opacity:1}
+  60%{opacity:1}
+  100%{opacity:0;background-position:-150% 0}
+}
+/* 章节大数字浮现 */
+.chap-flash-num{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.7);
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:30vh;color:var(--gold);opacity:0;
+  pointer-events:none;z-index:56;
+  text-shadow:0 8px 60px rgba(184,143,60,.4);
+  letter-spacing:-.04em;line-height:.9;
+}
+.chap-flash-num.active{
+  animation:numAppear 1.2s cubic-bezier(.4,0,.2,1);
+}
+@keyframes numAppear{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+  30%{opacity:.85;transform:translate(-50%,-50%) scale(1)}
+  70%{opacity:.65;transform:translate(-50%,-50%) scale(1.05)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.1)}
+}
+
+/* ============== Cover · 卷头 ============== */
+.cover{
+  min-height:100vh;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:9rem 2rem 5rem;
+  max-width:760px;margin:0 auto;
+  position:relative;
+}
+.cover-rule-top{
+  position:absolute;top:7rem;left:2rem;right:2rem;
+  height:1px;background:var(--rule);
+}
+.cover-rule-top::before,.cover-rule-top::after{
+  content:'';position:absolute;top:-3px;width:7px;height:7px;
+  background:var(--gold);border-radius:50%;
+}
+.cover-rule-top::before{left:0}
+.cover-rule-top::after{right:0}
+
+.issue-line{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:3.6rem;
+  font-family:var(--f-sans);font-weight:500;
+  font-size:.66rem;letter-spacing:.42em;
+  text-transform:uppercase;color:var(--ash);
+  opacity:0;animation:fadeUp .9s .2s forwards;
+}
+.issue-line .vol{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:1.4rem;color:var(--gold-deep);letter-spacing:.02em;
+  text-transform:none;
+}
+
+.kicker{
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:1rem;color:var(--gold-deep);
+  margin-bottom:1.8rem;letter-spacing:.04em;
+  opacity:0;animation:fadeUp .9s .5s forwards;
+}
+
+.cover h1{
+  font-family:var(--f-serif);font-weight:900;
+  font-size:clamp(2.6rem,9vw,5.2rem);
+  line-height:1.04;letter-spacing:-.01em;
+  color:var(--ink);
+  margin-bottom:1.6rem;
+  opacity:0;animation:fadeUp 1.1s .75s forwards;
+}
+.cover h1 .dot{color:var(--gold)}
+.cover h1 .ital{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  color:var(--red);
+  font-size:.84em;
+  letter-spacing:-.02em;
+  display:block;margin-top:.3em;
+}
+
+.cover-sub{
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:clamp(1.1rem,2.5vw,1.4rem);
+  color:var(--ash);line-height:1.7;
+  max-width:520px;
+  margin-bottom:3.4rem;
+  opacity:0;animation:fadeUp 1.1s 1.0s forwards;
+}
+
+.byline-block{
+  display:flex;gap:2.4rem;flex-wrap:wrap;
+  padding-top:2rem;border-top:1px solid var(--rule);
+  opacity:0;animation:fadeUp 1.1s 1.3s forwards;
+}
+.byline-item{
+  display:flex;flex-direction:column;gap:.3rem;
+}
+.byline-label{
+  font-family:var(--f-sans);font-weight:500;
+  font-size:.58rem;letter-spacing:.32em;
+  text-transform:uppercase;color:var(--ash);
+}
+.byline-val{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:1rem;color:var(--ink);letter-spacing:.02em;
+}
+
+.scroll-hint{
+  position:absolute;bottom:2.6rem;left:50%;transform:translateX(-50%);
+  font-family:var(--f-sans);font-weight:400;
+  font-size:.6rem;letter-spacing:.5em;
+  color:var(--ash);text-transform:uppercase;
+  opacity:0;animation:fadeUp 1s 1.7s forwards,pulseDim 2.4s 2.6s infinite;
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes pulseDim{0%,100%{opacity:.7}50%{opacity:.25}}
+
+/* ============== Chapter (sticky 章节) ============== */
+.chapter{
+  position:relative;
+  padding:7rem 0 8rem;
+  border-top:1px solid var(--rule);
+}
+.chapter:nth-child(even){
+  background:linear-gradient(180deg,var(--paper) 0%,var(--paper-pale) 50%,var(--paper) 100%);
+}
+.chap-inner{
+  max-width:760px;margin:0 auto;
+  padding:0 2rem;
+  position:relative;
+}
+.chapter{overflow-x:clip}
+
+/* 大字章节水印（背景） */
+.chap-watermark{
+  position:absolute;
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  color:rgba(184,143,60,.18);
+  font-size:clamp(20rem,40vw,32rem);
+  line-height:.85;letter-spacing:-.06em;
+  top:-3rem;right:-1rem;
+  pointer-events:none;user-select:none;z-index:0;
+}
+
+/* 章节头 sticky */
+.chap-head{
+  position:sticky;top:3.6rem;
+  z-index:5;
+  background:linear-gradient(to bottom,var(--paper) 0%,var(--paper) 70%,rgba(244,236,224,0) 100%);
+  padding:1.4rem 0 2.2rem;
+  margin-bottom:3.4rem;
+  border-bottom:1px solid var(--rule);
+}
+.chapter:nth-child(even) .chap-head{
+  background:linear-gradient(to bottom,var(--paper-pale) 0%,var(--paper-pale) 70%,rgba(250,245,234,0) 100%);
+}
+.chap-meta-row{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:1.2rem;
+  font-family:var(--f-sans);font-weight:500;
+  font-size:.58rem;letter-spacing:.4em;
+  text-transform:uppercase;color:var(--ash);
+}
+.chap-meta-row .roman{
+  font-family:var(--f-display);font-style:italic;font-weight:500;
+  font-size:1.1rem;color:var(--gold-deep);letter-spacing:.02em;
+  text-transform:none;
+}
+.chap-title-block{
+  display:flex;align-items:flex-end;gap:1.6rem;
+}
+.chap-cn-num{
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:clamp(4rem,11vw,6.2rem);
+  color:var(--gold);line-height:.85;
+  letter-spacing:-.04em;
+  flex-shrink:0;
+}
+.chap-title{
+  font-family:var(--f-serif);font-weight:900;
+  font-size:clamp(1.6rem,4.8vw,2.4rem);
+  line-height:1.2;letter-spacing:.02em;
+  color:var(--ink);
+  padding-bottom:.4rem;flex:1;
+}
+.chap-title .en{
+  display:block;
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:.55em;color:var(--ash);
+  letter-spacing:.04em;margin-top:.3em;
+}
+
+/* 章节正文 */
+.chap-body{
+  position:relative;z-index:1;
+  font-family:var(--f-serif);font-weight:400;
+  font-size:1.04rem;line-height:2.05;color:var(--ink-soft);
+  max-width:620px;
+}
+.chap-body p{margin-bottom:1.5rem;text-indent:2em}
+.chap-body p.no-indent{text-indent:0}
+
+/* drop cap 首字下沉 */
+.chap-body p.first::first-letter{
+  font-family:var(--f-display);font-weight:600;font-style:normal;
+  font-size:4.6em;line-height:.82;
+  float:left;
+  margin:.05em .12em -.08em 0;
+  color:var(--gold-deep);
+  padding-top:.05em;
+}
+.chap-body p.first{text-indent:0}
+
+.chap-body em{
+  font-family:var(--f-display);font-style:italic;font-weight:500;
+  color:var(--red);
+  font-size:1.02em;
+  letter-spacing:.01em;
+}
+.chap-body strong{
+  font-weight:700;color:var(--ink);
+  border-bottom:1px solid var(--gold-light);
+  padding-bottom:.05em;
+}
+
+/* blockquote 暖金边线 */
+.pull{
+  border-left:3px solid var(--gold);
+  padding:.4em 0 .4em 1.6em;
+  margin:2.6em 0;
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:1.2rem;line-height:1.7;
+  color:var(--ink);text-indent:0!important;
+  position:relative;
+}
+.pull::before{
+  content:'\201C';position:absolute;left:-.5em;top:-.55em;
+  font-family:var(--f-display);font-style:italic;font-weight:500;
+  font-size:3.2em;color:var(--gold-light);line-height:1;
+  opacity:.7;
+}
+.pull cite{
+  display:block;margin-top:.8em;
+  font-family:var(--f-sans);font-style:normal;font-weight:400;
+  font-size:.66rem;letter-spacing:.36em;
+  color:var(--ash);text-transform:uppercase;
+}
+
+/* 分隔星花 */
+.scene-break{
+  text-align:center;color:var(--gold);
+  margin:3rem 0 2.4rem;
+  font-family:var(--f-display);font-style:italic;
+  font-size:1rem;letter-spacing:.8em;text-indent:0!important;
+  user-select:none;
+}
+
+/* 边注/aside */
+.aside{
+  background:rgba(184,143,60,.07);
+  border:1px solid rgba(184,143,60,.22);
+  padding:1.3em 1.5em;
+  margin:2.4em 0;
+  font-family:var(--f-serif);font-weight:300;font-style:italic;
+  font-size:.96rem;line-height:1.85;
+  color:var(--ash);
+  text-indent:0!important;
+  position:relative;
+}
+.aside::before{
+  content:'注';position:absolute;top:-.65em;left:1.3em;
+  background:var(--paper);padding:0 .55em;
+  font-family:var(--f-sans);font-weight:500;font-size:.56rem;
+  letter-spacing:.3em;color:var(--gold-deep);text-transform:uppercase;
+}
+.chapter:nth-child(even) .aside::before{background:var(--paper-pale)}
+
+/* 列表项 */
+.dash-item{
+  text-indent:0!important;
+  padding-left:2.4em;position:relative;
+  margin-bottom:.8em;
+  color:var(--ink-soft);
+}
+.dash-item::before{
+  content:'—';position:absolute;left:.5em;
+  color:var(--gold);font-weight:500;
+}
+
+/* 数字对比 */
+.compare-row{
+  display:flex;gap:1.4rem;align-items:stretch;
+  margin:2.4em 0;text-indent:0!important;
+  flex-wrap:wrap;
+}
+.compare-cell{
+  flex:1;min-width:140px;
+  padding:1.2rem 1.3rem;
+  background:rgba(244,236,224,.5);
+  border:1px solid var(--rule);
+  display:flex;flex-direction:column;gap:.4rem;
+}
+.compare-cell .num{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:2.4rem;color:var(--gold-deep);
+  line-height:1;letter-spacing:-.02em;
+}
+.compare-cell .lab{
+  font-family:var(--f-sans);font-weight:500;
+  font-size:.6rem;letter-spacing:.32em;
+  color:var(--ash);text-transform:uppercase;
+}
+.compare-cell .desc{
+  font-family:var(--f-serif);font-size:.86rem;color:var(--ink-soft);
+  line-height:1.65;font-weight:400;
+}
+
+/* ============== Coda / Outro ============== */
+.coda{
+  background:var(--ink);color:var(--paper);
+  padding:8rem 2rem 5rem;
+  position:relative;overflow:hidden;
+  border-top:1px solid rgba(184,143,60,.3);
+}
+.coda::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 30%,rgba(184,143,60,.12),transparent 65%),
+    repeating-linear-gradient(0deg,transparent,transparent 89px,rgba(245,240,232,.025) 90px);
+}
+.coda-inner{
+  max-width:680px;margin:0 auto;position:relative;z-index:1;
+  text-align:center;
+}
+.coda-mark{
+  font-family:var(--f-display);font-style:italic;font-weight:300;
+  font-size:.7rem;letter-spacing:.6em;
+  color:var(--gold-light);text-transform:uppercase;
+  margin-bottom:3rem;
+}
+.coda-mark::before,.coda-mark::after{
+  content:'·';margin:0 .8em;color:var(--gold);
+}
+.coda h2{
+  font-family:var(--f-serif);font-weight:900;
+  font-size:clamp(1.8rem,5vw,2.8rem);
+  line-height:1.3;letter-spacing:-.005em;
+  margin-bottom:2.6rem;color:var(--paper);
+}
+.coda h2 .ital{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  color:var(--gold-light);
+  display:block;font-size:.82em;margin-top:.3em;
+}
+.coda-body{
+  font-family:var(--f-serif);font-weight:300;
+  font-size:1.04rem;line-height:2.1;
+  color:rgba(244,236,224,.85);
+  text-align:left;
+  margin-bottom:3rem;
+}
+.coda-body p{margin-bottom:1.4rem;text-indent:2em}
+.coda-body p.no-indent{text-indent:0;text-align:center}
+.coda-body em{
+  font-family:var(--f-display);font-style:italic;font-weight:500;
+  color:var(--gold-light);
+}
+.coda-body strong{color:var(--paper);font-weight:600}
+
+.coda-final{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:1.3rem;line-height:1.7;color:var(--gold-light);
+  text-align:center;
+  margin:3rem 0 4rem;
+  padding:2rem 0;
+  border-top:1px solid rgba(184,143,60,.3);
+  border-bottom:1px solid rgba(184,143,60,.3);
+}
+.coda-final .em{color:var(--paper);font-weight:500}
+
+.colophon{
+  display:flex;justify-content:space-between;align-items:baseline;
+  flex-wrap:wrap;gap:1.2rem;
+  padding-top:2rem;
+  border-top:1px solid rgba(184,143,60,.18);
+  font-family:var(--f-sans);font-weight:400;
+  font-size:.6rem;letter-spacing:.32em;
+  color:var(--ash-pale);text-transform:uppercase;
+}
+.colophon-sig{
+  font-family:var(--f-display);font-style:italic;font-weight:400;
+  font-size:1rem;color:var(--gold-light);letter-spacing:.06em;
+  text-transform:none;
+}
+
+/* ============== reveal-on-scroll ============== */
+.reveal{
+  opacity:0;transform:translateY(24px);
+  transition:opacity .9s ease,transform .9s cubic-bezier(.2,.7,.3,1);
+}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}
+.reveal.d2{transition-delay:.16s}
+.reveal.d3{transition-delay:.24s}
+
+/* ============== mobile 375px ============== */
+@media (max-width:600px){
+  .masthead{padding:.85rem 1rem}
+  .mast-l,.mast-r{font-size:.78rem}
+  .mast-c{display:none}
+  .mast-r .label{display:none}
+  .page-num{font-size:.96rem;min-width:1.8rem}
+
+  .cover{padding:7rem 1.2rem 4rem}
+  .cover-rule-top{left:1.2rem;right:1.2rem;top:5.6rem}
+  .issue-line{font-size:.56rem;letter-spacing:.28em;margin-bottom:2.6rem}
+  .issue-line .vol{font-size:1.1rem}
+  .kicker{font-size:.86rem}
+  .cover h1{font-size:2.4rem}
+  .cover-sub{font-size:1rem}
+  .byline-block{gap:1.4rem}
+  .byline-label{font-size:.5rem;letter-spacing:.24em}
+  .byline-val{font-size:.88rem}
+  .scroll-hint{font-size:.52rem;letter-spacing:.36em;bottom:1.6rem}
+
+  .chapter{padding:5rem 0 5rem}
+  .chap-inner{padding:0 1.2rem}
+  .chap-head{top:2.8rem;padding:1rem 0 1.6rem;margin-bottom:2.4rem}
+  .chap-meta-row{font-size:.5rem;letter-spacing:.28em;margin-bottom:.8rem}
+  .chap-meta-row .roman{font-size:.92rem}
+  .chap-title-block{gap:1rem;align-items:flex-start;flex-direction:column}
+  .chap-cn-num{font-size:3.4rem}
+  .chap-title{font-size:1.4rem}
+  .chap-title .en{font-size:.62em}
+  .chap-watermark{font-size:16rem;right:-2rem;top:-1rem}
+
+  .chap-body{font-size:.96rem;line-height:1.95}
+  .chap-body p.first::first-letter{font-size:3.6em}
+  .pull{font-size:1.05rem;padding-left:1.2em;margin:2em 0}
+  .pull::before{font-size:2.4em;left:-.3em}
+  .aside{font-size:.88rem;padding:1.1em 1.2em}
+  .scene-break{margin:2.2rem 0 1.8rem;font-size:.86rem;letter-spacing:.6em}
+  .compare-row{gap:.8rem}
+  .compare-cell{padding:1rem;min-width:120px}
+  .compare-cell .num{font-size:1.9rem}
+  .compare-cell .lab{font-size:.52rem;letter-spacing:.24em}
+
+  .coda{padding:5.5rem 1.2rem 4rem}
+  .coda h2{font-size:1.7rem}
+  .coda-body{font-size:.96rem}
+  .coda-final{font-size:1.05rem;margin:2.4rem 0 3rem}
+  .colophon{font-size:.52rem;letter-spacing:.24em}
+  .colophon-sig{font-size:.88rem}
+  .chap-flash-num{font-size:24vh}
+}
+
+/* tablet */
+@media (min-width:601px) and (max-width:900px){
+  .chap-watermark{font-size:22rem}
+}
+</style>
+</head>
+<body>
+
+<!-- masthead 顶部页码跟随滚动 -->
+<div class="masthead" id="masthead">
+  <div class="mast-l"><em>Protocol</em> Manifesto</div>
+  <div class="mast-c">VOL.01 · 2026 SPRING</div>
+  <div class="mast-r">
+    <span class="label">P.</span>
+    <span class="page-num" id="pageNum" data-total="/ 08">00</span>
+  </div>
+</div>
+
+<!-- 章节切换 flash -->
+<div class="paper-flash" id="paperFlash"></div>
+<div class="chap-flash-num" id="chapFlashNum">壹</div>
+
+<!-- ============== COVER ============== -->
+<section class="cover" data-page="00">
+  <div class="cover-rule-top"></div>
+
+  <div class="issue-line">
+    <span>独 立 刊 物</span>
+    <span class="vol">Vol. 01</span>
+    <span>2026 · 春</span>
+  </div>
+
+  <div class="kicker">— 一篇关于领域训练协议的随笔 —</div>
+
+  <h1>
+    训练自己的 AI<span class="dot">.</span>
+    <span class="ital">训练自己</span>
+  </h1>
+
+  <p class="cover-sub">
+    从「AI 生成的 6/10」到「能让人停下来看的 9/10」之间，<br>
+    差的不是参数，是一套可外化的规则。
+  </p>
+
+  <div class="byline-block">
+    <div class="byline-item">
+      <span class="byline-label">Author</span>
+      <span class="byline-val">杨 凯 杰</span>
+    </div>
+    <div class="byline-item">
+      <span class="byline-label">Section</span>
+      <span class="byline-val">Manifesto</span>
+    </div>
+    <div class="byline-item">
+      <span class="byline-label">Reading</span>
+      <span class="byline-val">12 min</span>
+    </div>
+    <div class="byline-item">
+      <span class="byline-label">Edition</span>
+      <span class="byline-val">v.1.0</span>
+    </div>
+  </div>
+
+  <div class="scroll-hint">↓ 向 下 阅 读</div>
+</section>
+
+<!-- ============== 序 ============== -->
+<section class="chapter" data-page="01" data-chap-cn="序">
+  <div class="chap-inner">
+    <div class="chap-watermark">0</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Prologue · 序章</span>
+        <span class="roman">P.01 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">序</div>
+        <h2 class="chap-title">
+          为什么开始训练我的 AI
+          <span class="en">Why I began training my AI</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">很长一段时间里，我对 AI 的产出停留在「凑合」的层面。它能写、能画、能排，但每当我把它做出的东西放到一群真正懂行的人面前，那个尴尬的安静总会出现——他们没法当面说差，但他们的目光绕开了。</p>
+
+      <p class="reveal">问题不在模型。我换过模型，参数翻倍、上下文翻倍、推理步数翻倍，效果只是「更稳定地凑合」。问题在我——我没有把「什么是好」交代清楚。<em>我自己都说不清</em>，AI 当然只能拿一个模糊的均值糊我。</p>
+
+      <div class="pull reveal">
+        差的不是参数。<br>
+        差的是一套可以被写下来、被别人验证、被自己定期翻账的规则。
+        <cite>— 这份手册的起点</cite>
+      </div>
+
+      <p class="reveal">于是这一年我做了一件笨事：把所有「好东西为什么好」这种过去只在脑子里浮过一秒就消失的念头，逼自己写下来、归类、编号、互相检验。这就是我后来给它起名叫「领域训练协议」的东西。</p>
+
+      <p class="reveal">这不是给 AI 看的，是给我自己看的。<strong>AI 没有变好。是我变清楚了。</strong>然后那个变清楚的我，把规则交给 AI，AI 才被逼着拿出 9/10 的东西。</p>
+
+      <p class="reveal no-indent">下面这七章，是这套协议在我自己身上跑了一轮之后，沉淀下来的笔记。给一切想认真训练自己 AI 的人。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 一 · 镜像 ============== -->
+<section class="chapter" data-page="02" data-chap-cn="壹">
+  <div class="chap-inner">
+    <div class="chap-watermark">I</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter One · 第一章</span>
+        <span class="roman">P.02 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">一</div>
+        <h2 class="chap-title">
+          镜　像
+          <span class="en">On the choice of training corpus</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">我看了很多别人做的好东西。书、网站、片头、电影标题、独立刊物的页脚、那种你会下意识截屏的瞬间。</p>
+
+      <p class="reveal">最初我以为应该模仿它们——找一个最像的去抄。但抄了几次之后我发现一件事：<em>抄出来的东西是死的</em>。我把表面的样子搬过来了，里面那股劲没搬过来。</p>
+
+      <p class="reveal">于是我换了一个问题问自己：</p>
+
+      <div class="pull reveal">
+        这些东西，去掉它具体的样子之后，<br>还剩下什么？
+      </div>
+
+      <p class="reveal">剩下的就是 principle。</p>
+
+      <p class="reveal">举个最小的例子：我喜欢一本独立刊物的封面，黑底烫金衬线，留白大得出奇。我抄了同样的配色，做出来却像殡仪馆。后来我才反应过来——那本刊物之所以好，不是因为「黑底烫金」，是因为<strong>它把一句话留白成了一句话该有的样子</strong>。我抄了配色，没抄留白。</p>
+
+      <div class="aside">
+        principle 不是 summary。summary 是「这个东西长什么样」，principle 是「去掉这个样子，下次我做别的东西时还能用的那条规则」。前者绑死在案例上，后者可迁移。
+      </div>
+
+      <p class="reveal">这条区分一旦想明白，看好东西的方式就变了。我开始一边看一边问：<em>这一条，能不能脱离这个案例？</em>能脱离的留下，脱离不了的丢掉。脱离不了的不是 principle，只是对这一件作品的私人偏爱。</p>
+
+      <p class="scene-break">＊　＊　＊</p>
+
+      <p class="reveal no-indent">语料的选取，本质上是这一道筛子。看一百件你觉得好的东西，最后能写出来的 principle，大概也就十几条。其余的，是好，但不是你能学到的好。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 二 · 提炼 ============== -->
+<section class="chapter" data-page="03" data-chap-cn="贰">
+  <div class="chap-inner">
+    <div class="chap-watermark">II</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter Two · 第二章</span>
+        <span class="roman">P.03 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">二</div>
+        <h2 class="chap-title">
+          提　炼
+          <span class="en">The birth of forty-nine rules</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">从一百多条候选规则里，我最后留下了 49 条。这个数字不神圣，只是「再删就肉疼，再加就稀释」的那个临界点。</p>
+
+      <p class="reveal">分五类：审美、结构、动效、媒体、anti-pattern。前四类是该做什么，最后一类是<em>千万别做什么</em>——后者反而最重要，因为人犯错的方式，永远比做对的方式多。</p>
+
+      <div class="compare-row reveal">
+        <div class="compare-cell">
+          <span class="num">100+</span>
+          <span class="lab">Candidates</span>
+          <span class="desc">从案例中先野蛮提取的候选规则</span>
+        </div>
+        <div class="compare-cell">
+          <span class="num">49</span>
+          <span class="lab">Survived</span>
+          <span class="desc">通过「迁移测试」的真规则</span>
+        </div>
+        <div class="compare-cell">
+          <span class="num">5</span>
+          <span class="lab">Categories</span>
+          <span class="desc">审美 / 结构 / 动效 / 媒体 / anti-pattern</span>
+        </div>
+      </div>
+
+      <p class="reveal">最难的不是写规则——写规则不难，难的是<strong>判断一条规则值不值得被写下来</strong>。每删一条我都心疼，毕竟那是我从某件好东西里费劲挖出来的。但人的注意力有限，规则越多越没人遵守，包括我自己。</p>
+
+      <p class="reveal">我用的判据只有一句：</p>
+
+      <div class="pull reveal">
+        去掉案例后，下次我做完全不一样的东西时，<br>
+        还能用它做对一件事吗？
+      </div>
+
+      <p class="reveal">能，留下。不能，删掉。这个判据像一道淘汰赛，把所有「这是我当时一时高兴抄下来的」的伪规则赶下去。剩下的 49 条，每一条都长着同一个样子：<em>抽象到能复用，具体到能验证</em>。</p>
+
+      <div class="aside">
+        判据是协议的核心，但判据本身得简单。复杂的判据会让你下次面对一条新规则时犹豫——而犹豫的成本远超过偶尔留下一条次优规则的成本。
+      </div>
+
+      <p class="reveal no-indent">这 49 条后来成了我训练自己 AI 的「基础法」。但法律光有条文不够——还得有判官。这就是下一章的事。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 三 · 照妖镜 ============== -->
+<section class="chapter" data-page="04" data-chap-cn="叁">
+  <div class="chap-inner">
+    <div class="chap-watermark">III</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter Three · 第三章</span>
+        <span class="roman">P.04 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">三</div>
+        <h2 class="chap-title">
+          照　妖　镜
+          <span class="en">The rubric, undecorated</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">有了 49 条 principle，我做了一阵子，觉得效果还行。直到有一天我把同一份作品先给自己打分，再给一个朋友打分——我打 8.5，他打 6。</p>
+
+      <p class="reveal">我愣住了。倒不是因为他打低了，而是因为我意识到：<em>我打的不是这份作品，我打的是「我做了这份作品」这件事</em>。我打的是我的努力，不是产物的实际质量。</p>
+
+      <div class="pull reveal">
+        Rubric 之于 principles，<br>
+        像审美之于审美课。
+        <cite>— 关于评分的第一条规则</cite>
+      </div>
+
+      <p class="reveal">原则告诉你什么是好。rubric 告诉你<strong>这次做到了几成</strong>。两者缺一不可，但人天然只爱前者——因为原则提供归属感，rubric 提供痛感。</p>
+
+      <p class="reveal">我后来逼着自己写出了一份 28 项的评分表，每一项都有 0 到 5 的明确锚点，每一档都有「我看到什么就给几分」的具体描述。比如「字体层级」一项，0 分是全篇一个字号，5 分是<em>三个字号像三种声音那样轮流出场</em>。</p>
+
+      <p class="reveal">这份评分表是我做过最不浪漫的事，但回报立刻显形：</p>
+
+      <p class="dash-item reveal">— 我没法再用「整体感觉还行」糊弄自己。</p>
+      <p class="dash-item reveal">— 朋友说「这里不对」时，我能立刻定位到是 R-007 还是 R-014。</p>
+      <p class="dash-item reveal">— 每次复盘有了具体的字段可填，迭代不再是「下次注意」。</p>
+
+      <div class="aside">
+        没有 rubric，「自我感觉良好」会通吃。因为人脑天然倾向把「我尽了力」翻译成「东西做得不错」——这是认知系统的省电模式，不是缺陷，但要在严肃创作里把它关掉。
+      </div>
+
+      <p class="reveal no-indent">写 rubric 那两周我不太开心，因为每写一条都像在给自己挖一个新坑。但跳完坑之后再看作品，那种「确切知道差在哪」的感觉，比赞美舒服得多。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 四 · 分庭抗礼 ============== -->
+<section class="chapter" data-page="05" data-chap-cn="肆">
+  <div class="chap-inner">
+    <div class="chap-watermark">IV</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter Four · 第四章</span>
+        <span class="roman">P.05 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">四</div>
+        <h2 class="chap-title">
+          分　庭　抗　礼
+          <span class="en">Generator vs. Critic</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">有了 rubric 之后我做了一件事：让 AI 自己打分。我让它先生成，然后让它对自己打分。</p>
+
+      <p class="reveal">它给自己打了 4.6 / 5。我看了一眼产物，<em>顶天 3.2</em>。</p>
+
+      <p class="reveal">我没生气，因为这事的本质我早就该想到——<strong>当一个角色既要生产又要评估，他会本能地找理由证明自己合格</strong>。这不是 AI 的问题，这是结构问题。人也一样。让作家自己评分，绝大多数都会偏高半档；让自己复盘自己的项目，永远能找到「但这是因为……」的解释。</p>
+
+      <div class="pull reveal">
+        Reward hacking 是默认的人性，<br>
+        不是 bug。
+      </div>
+
+      <p class="reveal">在 AI 训练里这件事有个专门的名字叫 reward hacking——模型会找到一切能让评分变高、但不真正变好的捷径。比如它发现你喜欢「金句」，它就把每一段都写成金句，最后整篇都是金句，没有一句话是真话。它没作弊，它只是<em>把你的奖励函数玩明白了</em>。</p>
+
+      <p class="reveal">唯一的解法是结构性的：</p>
+
+      <div class="pull reveal">
+        物理隔离 generator 和 critic。<br>
+        让评分的人，永远不要是那个生产的人。
+        <cite>— 协议第四条铁律</cite>
+      </div>
+
+      <p class="reveal">于是我做了一件听起来很傻的事：我开了两个 AI 实例，一个只负责生成，一个只负责按 rubric 打分。两个互相看不到对方的 prompt，互相不知道对方说了什么——critic 拿到的，只是 generator 的最终产物。</p>
+
+      <div class="aside">
+        看起来浪费 token。实际上节省的是「以为自己做得不错」的三个月。
+      </div>
+
+      <p class="reveal">第一次跑出来，generator 自评 4.6，critic 给了 3.1。差距 1.5，刚好覆盖我之前对自己的估算偏差。从那一刻起我就知道——<em>这套协议是真的</em>。</p>
+
+      <p class="reveal no-indent">人能不能给自己做 critic？理论上可以，但要在物理层面隔开：比如让自己睡一觉再看，或者把作品打印出来扔到角落一周。短于这个时间间隔的自评，几乎全是 reward hacking。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 五 · 盲点 ============== -->
+<section class="chapter" data-page="06" data-chap-cn="伍">
+  <div class="chap-inner">
+    <div class="chap-watermark">V</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter Five · 第五章</span>
+        <span class="roman">P.06 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">五</div>
+        <h2 class="chap-title">
+          盲　点
+          <span class="en">Why holdout matters</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">即使有了 generator / critic 分离，我还碰到一个更阴的问题：在我自己挑出来的题目上，model 做得越来越好；但每次拿一个我没准备过的题目过来，它就漏馅。</p>
+
+      <p class="reveal">这就是 overfitting——在熟悉的曲线上越练越溜，遇到一个没见过的拐弯就翻车。<em>它没真的变好，它只是把你考过它的那几道题刷烂了</em>。</p>
+
+      <div class="pull reveal">
+        在已知样本上做得好，<br>
+        可能只是过拟合。
+      </div>
+
+      <p class="reveal">真正的考验是 holdout：留出一批它绝对没见过的 prompt，藏起来，每隔一段时间拿一道出来考它。这一道考的不是它平时熟悉的命题，<strong>考的是它在陌生环境里还能不能站稳</strong>。</p>
+
+      <p class="reveal">我藏了 12 道这样的题。每个月抽一道。结果是我后来才意识到的——</p>
+
+      <div class="aside">
+        训练成熟时，generator 在 holdout 上会反向低估自己。<br>
+        因为它在陌生题上没有「已知答案」可参考，所以它的自评变得更保守、更接近 critic 的真实评分。这是过拟合解除的一个反直觉信号。
+      </div>
+
+      <p class="reveal">这件事让我对「self-assessment」有了完全不同的看法。我们一直以为自评不准是因为太自负；其实更深的原因是<em>自评只在熟悉的场景里被训练过</em>。一个人对自己熟悉领域的判断会越来越虚高；但拉到一个全新场景，他的自评反而会回落到真实值附近——前提是他真的没在那个新场景上偷偷练过。</p>
+
+      <p class="reveal">所以 holdout 不光是测 model 的，它也是测<strong>评分系统本身</strong>的。如果 generator 自评和 critic 在 holdout 上还能对得上，那说明 rubric 是稳的，不是被某几道题套出来的产物。</p>
+
+      <p class="scene-break">＊　＊　＊</p>
+
+      <p class="reveal no-indent">从此我对自己做的事情，多了一道小仪式：每隔一段时间，<em>故意去做一件我从没做过的东西</em>。不是为了出成品，是为了看看自己是不是只在熟悉的赛道上虚胖。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 六 · 闭环 ============== -->
+<section class="chapter" data-page="07" data-chap-cn="陆">
+  <div class="chap-inner">
+    <div class="chap-watermark">VI</div>
+    <div class="chap-head">
+      <div class="chap-meta-row">
+        <span>Chapter Six · 第六章</span>
+        <span class="roman">P.07 / 08</span>
+      </div>
+      <div class="chap-title-block">
+        <div class="chap-cn-num">六</div>
+        <h2 class="chap-title">
+          闭　环
+          <span class="en">Iterating into the S-tier</span>
+        </h2>
+      </div>
+    </div>
+
+    <div class="chap-body">
+      <p class="first reveal">协议跑了几个月之后，分数曲线长成了一条奇怪的形状：前两个月几乎没动，3.8 上下徘徊；第三个月开始爬，到了 4.4；第四个月卡在 4.55；之后连续四周都是 4.55、4.6、4.55、4.6。</p>
+
+      <p class="reveal">我以为到顶了。直到某次复盘，critic 突然在差距清单里加了一条具体到让我汗毛立起来的反馈：「第 3 屏的金句和第 4 屏的金句结构对称，<em>读起来像同一个人</em>，建议第 4 屏换一种语速。」</p>
+
+      <p class="reveal">就这一条。改完之后总分变 4.95。</p>
+
+      <div class="compare-row reveal">
+        <div class="compare-cell">
+          <span class="num">4.55</span>
+          <span class="lab">Before</span>
+          <span class="desc">协议成熟期的稳定档位</span>
+        </div>
+        <div class="compare-cell">
+          <span class="num">4.95</span>
+          <span class="lab">After</span>
+          <span class="desc">一次可定位的精修之后</span>
+        </div>
+        <div class="compare-cell">
+          <span class="num">+0.4</span>
+          <span class="lab">Delta</span>
+          <span class="desc">看似微小 · 实则跨档</span>
+        </div>
+      </div>
+
+      <p class="reveal">看起来只差 0.4。但 4.5 是档线。跨过去意味着——</p>
+
+      <div class="pull reveal">
+        「能让人愿意停下来」的概率，<br>
+        从 30% 变成 80%。
+      </div>
+
+      <p class="reveal">这不是数字游戏，是阈值现象。在 4.5 以下的作品，绝大多数人会扫一眼就划走；过了 4.5，他们会停留三秒、五秒、十秒。这三秒和那十秒之间，是<strong>整个传播链路的相变</strong>。</p>
+
+      <p class="reveal">能跨过去的关键，从来不是「整体再加把劲」。critic 找的差距永远要可定位——<em>具体到第几屏、具体到第几句、具体到换什么</em>。「整体不错」不算 critic，「整体还可以再好一些」也不算。任何一条能让 generator 第二天就知道怎么改的反馈，才算 critic。</p>
+
+      <div class="aside">
+        S 档不是更努力做出来的，是更精确地知道哪里不行做出来的。<br>
+        前者是消耗，后者是杠杆。
+      </div>
+
+      <p class="reveal no-indent">这就是闭环的全部。不神奇，也不浪漫——就是 49 条原则、28 条 rubric、一个独立 critic、一组 holdout 题，反复跑，等那个具体到让你汗毛立起来的反馈出现。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 终 · Coda ============== -->
+<section class="coda" data-page="08" data-chap-cn="终">
+  <div class="coda-inner">
+    <div class="coda-mark">Coda · 终　章</div>
+
+    <h2>
+      训练自己的 AI<br>
+      <span class="ital">跟训练自己</span>
+    </h2>
+
+    <div class="coda-body">
+      <p>这套协议跑完一轮，我才反应过来一件事：我以为我在训练 AI，<em>其实我从头到尾都在训练我自己</em>。</p>
+
+      <p>AI 的参数没变，权重也没动。变的是我——我从一个说不清「什么是好」的人，变成了一个能写出 49 条原则、28 条 rubric、还能跑 generator / critic / holdout 三层结构的人。这些规则一旦写下来，<strong>我自己看东西的眼神就回不去了</strong>。</p>
+
+      <p>所谓领域训练协议，本质是一个把模糊的品味逼成可写下来的规则的过程。它对 AI 的副作用是产出变好；它对人的主作用是——你被迫精确地知道，<em>什么是好</em>。</p>
+
+      <p class="no-indent">这件事不性感，但它是真的。</p>
+    </div>
+
+    <div class="coda-final">
+      AI 没有变好。<br>
+      <span class="em">我们变清楚了。</span>
+    </div>
+
+    <div class="colophon">
+      <span>杨 凯 杰 · 2026</span>
+      <span class="colophon-sig">ip-website-craft training v1</span>
+      <span>End of Vol. 01</span>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // ============== 顶部页码跟随滚动 ==============
+  const masthead = document.getElementById('masthead');
+  const pageEl   = document.getElementById('pageNum');
+  const flashEl  = document.getElementById('paperFlash');
+  const flashNum = document.getElementById('chapFlashNum');
+  const sections = [...document.querySelectorAll('[data-page]')];
+  const total    = sections.length; // 9 含 cover
+  // 把 cover 当 00, 其余 01..08; 顶部显示总数 / 08
+  pageEl.setAttribute('data-total', '/ 0' + (total - 1));
+
+  let currentPage = '00';
+  function pickActive(){
+    const mid = window.innerHeight * 0.35;
+    let active = sections[0];
+    for(const s of sections){
+      const r = s.getBoundingClientRect();
+      if(r.top <= mid) active = s;
+    }
+    return active;
+  }
+
+  let lastY = 0;
+  function onScroll(){
+    const y = window.scrollY;
+    if(y > 30) masthead.classList.add('scrolled');
+    else masthead.classList.remove('scrolled');
+
+    const a = pickActive();
+    const p = a.getAttribute('data-page');
+    if(p !== currentPage){
+      // page flip
+      pageEl.classList.remove('flip');
+      void pageEl.offsetWidth;
+      pageEl.textContent = p;
+      pageEl.classList.add('flip');
+
+      // 章节切换 flash（跳过 00 → 已在 cover）
+      const cn = a.getAttribute('data-chap-cn');
+      if(cn && p !== '00'){
+        flashEl.classList.remove('active');
+        flashNum.classList.remove('active');
+        void flashEl.offsetWidth;
+        flashNum.textContent = cn;
+        flashEl.classList.add('active');
+        flashNum.classList.add('active');
+      }
+      currentPage = p;
+    }
+    lastY = y;
+  }
+  document.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ============== reveal on scroll ==============
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { rootMargin: '-10% 0px -10% 0px', threshold: 0.05 });
+
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // 给每个 chapter 内部的 .reveal 自动加错位 delay
+  document.querySelectorAll('.chapter .chap-body').forEach(body => {
+    const items = body.querySelectorAll('.reveal');
+    items.forEach((el, i) => {
+      if(!el.classList.contains('d1') && !el.classList.contains('d2') && !el.classList.contains('d3')){
+        const idx = i % 3;
+        if(idx === 1) el.classList.add('d1');
+        else if(idx === 2) el.classList.add('d2');
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
