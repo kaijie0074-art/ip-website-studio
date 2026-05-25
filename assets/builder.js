@@ -9,6 +9,7 @@
   const API_URL = 'https://api.anthropic.com/v1/messages';
   const MODEL = 'claude-sonnet-4-6';
   const ANTHROPIC_VERSION = '2023-06-01';
+  const DEPLOY_API = 'https://ipws-host.kaijie0074-art.workers.dev/api/deploy';
 
   const DIMENSIONS = [
     { id:'form',     label:'form',     desc:'排版 / 长文' },
@@ -180,9 +181,19 @@
             <div class="ipwc-preview-wrap" id="ipwc-preview-wrap">
               <iframe class="ipwc-iframe" id="ipwc-iframe" sandbox="allow-scripts allow-same-origin" title="generated preview"></iframe>
               <div class="ipwc-actions">
+                <button class="ipwc-btn-deploy" id="ipwc-deploy" type="button">🚀  一键部署</button>
                 <button class="ipwc-btn primary" id="ipwc-download" type="button">⬇  下载 HTML</button>
                 <button class="ipwc-btn" id="ipwc-open-tab" type="button">↗  新标签页打开</button>
                 <button class="ipwc-btn" id="ipwc-again" type="button">↻  再来一个</button>
+              </div>
+              <div class="ipwc-deployed-panel" id="ipwc-deployed-panel" hidden>
+                <div class="ipwc-deployed-title">🎉 部署成功 · 可分享链接</div>
+                <a class="ipwc-deployed-url" id="ipwc-deployed-url" href="#" target="_blank" rel="noopener"></a>
+                <div class="ipwc-deployed-actions">
+                  <button class="ipwc-deployed-copy" id="ipwc-deployed-copy" type="button">📋  复制链接</button>
+                  <button class="ipwc-deployed-copy" id="ipwc-deployed-open" type="button">🔗  在新标签页打开</button>
+                </div>
+                <div class="ipwc-deployed-meta" id="ipwc-deployed-meta">📅 90 天后自动过期</div>
               </div>
             </div>
           </div>
@@ -248,6 +259,9 @@
     modal.querySelector('#ipwc-download').addEventListener('click', downloadHtml);
     modal.querySelector('#ipwc-open-tab').addEventListener('click', openInTab);
     modal.querySelector('#ipwc-again').addEventListener('click', resetForNext);
+    modal.querySelector('#ipwc-deploy').addEventListener('click', deployHtml);
+    modal.querySelector('#ipwc-deployed-copy').addEventListener('click', copyDeployedUrl);
+    modal.querySelector('#ipwc-deployed-open').addEventListener('click', openDeployedUrl);
 
     // ESC to close
     document.addEventListener('keydown', e => {
@@ -626,6 +640,11 @@
     wrap.classList.toggle('is-on', on);
     if (on){
       document.getElementById('ipwc-empty').style.display = 'none';
+    } else {
+      // hide stale deploy panel when leaving preview
+      const panel = document.getElementById('ipwc-deployed-panel');
+      if (panel){ panel.hidden = true; panel.classList.remove('is-error'); }
+      lastDeployUrl = '';
     }
   }
   function showCritic(on){
@@ -680,11 +699,90 @@
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
+
+  // ---------- deploy to ipws-host ----------
+  let lastDeployUrl = '';
+  async function deployHtml(){
+    if (!lastHtml) return;
+    const btn = document.getElementById('ipwc-deploy');
+    const panel = document.getElementById('ipwc-deployed-panel');
+    const metaEl = document.getElementById('ipwc-deployed-meta');
+    const urlEl = document.getElementById('ipwc-deployed-url');
+    const origLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '◌  部署中...';
+    panel.hidden = true;
+    panel.classList.remove('is-error');
+    try {
+      const resp = await fetch(DEPLOY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/html;charset=utf-8' },
+        body: lastHtml,
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.url){
+        const msg = (data && data.error) ? data.error : ('HTTP ' + resp.status);
+        showDeployError(msg);
+        return;
+      }
+      lastDeployUrl = data.url;
+      urlEl.textContent = data.url;
+      urlEl.href = data.url;
+      const remainTxt = (typeof data.remaining === 'number') ? ('，本小时还可部署 ' + data.remaining + ' 次') : '';
+      metaEl.textContent = '📅 90 天后自动过期' + remainTxt;
+      panel.hidden = false;
+    } catch (err){
+      showDeployError(err && err.message ? err.message : String(err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  }
+  function showDeployError(msg){
+    const panel = document.getElementById('ipwc-deployed-panel');
+    const urlEl = document.getElementById('ipwc-deployed-url');
+    const metaEl = document.getElementById('ipwc-deployed-meta');
+    urlEl.textContent = '';
+    urlEl.removeAttribute('href');
+    metaEl.textContent = '❌ 部署失败：' + msg;
+    panel.classList.add('is-error');
+    panel.hidden = false;
+  }
+  async function copyDeployedUrl(){
+    if (!lastDeployUrl) return;
+    const btn = document.getElementById('ipwc-deployed-copy');
+    const orig = btn.textContent;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(lastDeployUrl);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = lastDeployUrl;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        ta.remove();
+      }
+      btn.textContent = '✅  已复制';
+      setTimeout(() => { btn.textContent = orig; }, 1600);
+    } catch(_){
+      btn.textContent = '⚠️ 复制失败';
+      setTimeout(() => { btn.textContent = orig; }, 1600);
+    }
+  }
+  function openDeployedUrl(){
+    if (!lastDeployUrl) return;
+    window.open(lastDeployUrl, '_blank', 'noopener');
+  }
+
   function resetForNext(){
     iteration = 1;
     prevCriticFeedback = null;
     lastCritic = null;
     lastHtml = '';
+    lastDeployUrl = '';
+    const panel = document.getElementById('ipwc-deployed-panel');
+    if (panel){ panel.hidden = true; panel.classList.remove('is-error'); }
     showCritic(false);
     showPreview(false);
     showProgress(false);
