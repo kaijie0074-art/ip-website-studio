@@ -1183,11 +1183,20 @@ statEls.forEach(el => io.observe(el));
 <!-- ============ LENIS smooth scroll ============ -->
 <script type="module">
 import Lenis from 'https://cdn.jsdelivr.net/npm/lenis@1.1.20/+esm';
+window.__lenis_instance = null;
 const lenis = new Lenis({
   duration: 1.1,
   easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
   smoothWheel: true,
+  // 当 modal 打开 / body 被锁时，让出 wheel 事件给浏览器原生滚动，不要拦截
+  prevent: (node) => {
+    if (document.documentElement.classList.contains('ipwc-locked')) return true;
+    if (document.body.classList.contains('ipwc-locked')) return true;
+    try { if (node && node.closest && node.closest('.ipwc-modal')) return true; } catch(_){}
+    return false;
+  },
 });
+window.__lenis_instance = lenis;
 function raf(time){
   lenis.raf(time);
   requestAnimationFrame(raf);
